@@ -1,0 +1,1711 @@
+{
+  "applyable": true,
+  "complete": true,
+  "configuration": {
+    "provider_config": {
+      "archive": {
+        "full_name": "registry.terraform.io/hashicorp/archive",
+        "name": "archive",
+        "version_constraint": "~> 2.4"
+      },
+      "aws": {
+        "expressions": {
+          "access_key": {
+            "constant_value": "moto-demo"
+          },
+          "endpoints": [
+            {
+              "iam": {
+                "references": [
+                  "var.endpoint"
+                ]
+              },
+              "lambda": {
+                "references": [
+                  "var.endpoint"
+                ]
+              },
+              "logs": {
+                "references": [
+                  "var.endpoint"
+                ]
+              },
+              "sns": {
+                "references": [
+                  "var.endpoint"
+                ]
+              },
+              "sqs": {
+                "references": [
+                  "var.endpoint"
+                ]
+              },
+              "sts": {
+                "references": [
+                  "var.endpoint"
+                ]
+              }
+            }
+          ],
+          "region": {
+            "constant_value": "eu-west-1"
+          },
+          "secret_key": {
+            "constant_value": "moto-demo"
+          },
+          "skip_credentials_validation": {
+            "constant_value": true
+          },
+          "skip_metadata_api_check": {
+            "constant_value": true
+          },
+          "skip_region_validation": {
+            "constant_value": true
+          },
+          "skip_requesting_account_id": {
+            "constant_value": true
+          }
+        },
+        "full_name": "registry.terraform.io/hashicorp/aws",
+        "name": "aws",
+        "version_constraint": "~> 6.0"
+      }
+    },
+    "root_module": {
+      "outputs": {
+        "announced_queue_url": {
+          "expression": {
+            "references": [
+              "aws_sqs_queue.announced.url",
+              "aws_sqs_queue.announced"
+            ]
+          }
+        },
+        "arrivals_queue_url": {
+          "expression": {
+            "references": [
+              "aws_sqs_queue.arrivals.url",
+              "aws_sqs_queue.arrivals"
+            ]
+          }
+        },
+        "function_name": {
+          "expression": {
+            "references": [
+              "aws_lambda_function.consumer.function_name",
+              "aws_lambda_function.consumer"
+            ]
+          }
+        },
+        "topic_arn": {
+          "expression": {
+            "references": [
+              "aws_sns_topic.announcements.arn",
+              "aws_sns_topic.announcements"
+            ]
+          }
+        }
+      },
+      "resources": [
+        {
+          "address": "aws_iam_policy.consume_and_announce",
+          "expressions": {
+            "name": {
+              "constant_value": "quiltz-consume-and-announce"
+            },
+            "policy": {
+              "references": [
+                "data.aws_iam_policy_document.consume_and_announce.json",
+                "data.aws_iam_policy_document.consume_and_announce"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "consume_and_announce",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_iam_policy"
+        },
+        {
+          "address": "aws_iam_role.consumer",
+          "expressions": {
+            "assume_role_policy": {
+              "references": [
+                "data.aws_iam_policy_document.assume_by_lambda.json",
+                "data.aws_iam_policy_document.assume_by_lambda"
+              ]
+            },
+            "name": {
+              "constant_value": "quiltz-consumer"
+            }
+          },
+          "mode": "managed",
+          "name": "consumer",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_iam_role"
+        },
+        {
+          "address": "aws_iam_role_policy_attachment.consumer",
+          "expressions": {
+            "policy_arn": {
+              "references": [
+                "aws_iam_policy.consume_and_announce.arn",
+                "aws_iam_policy.consume_and_announce"
+              ]
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.consumer.name",
+                "aws_iam_role.consumer"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "consumer",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_iam_role_policy_attachment"
+        },
+        {
+          "address": "aws_lambda_event_source_mapping.arrivals",
+          "expressions": {
+            "batch_size": {
+              "constant_value": 1
+            },
+            "enabled": {
+              "constant_value": true
+            },
+            "event_source_arn": {
+              "references": [
+                "aws_sqs_queue.arrivals.arn",
+                "aws_sqs_queue.arrivals"
+              ]
+            },
+            "function_name": {
+              "references": [
+                "aws_lambda_function.consumer.arn",
+                "aws_lambda_function.consumer"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "arrivals",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_lambda_event_source_mapping"
+        },
+        {
+          "address": "aws_lambda_function.consumer",
+          "expressions": {
+            "environment": [
+              {
+                "variables": {
+                  "references": [
+                    "var.endpoint_from_lambda",
+                    "aws_sns_topic.announcements.arn",
+                    "aws_sns_topic.announcements"
+                  ]
+                }
+              }
+            ],
+            "filename": {
+              "references": [
+                "data.archive_file.handler.output_path",
+                "data.archive_file.handler"
+              ]
+            },
+            "function_name": {
+              "constant_value": "quiltz-consumer"
+            },
+            "handler": {
+              "constant_value": "handler.handler"
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.consumer.arn",
+                "aws_iam_role.consumer"
+              ]
+            },
+            "runtime": {
+              "constant_value": "python3.12"
+            },
+            "source_code_hash": {
+              "references": [
+                "data.archive_file.handler.output_base64sha256",
+                "data.archive_file.handler"
+              ]
+            },
+            "timeout": {
+              "constant_value": 30
+            }
+          },
+          "mode": "managed",
+          "name": "consumer",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_lambda_function"
+        },
+        {
+          "address": "aws_sns_topic.announcements",
+          "expressions": {
+            "name": {
+              "constant_value": "quiltz-announcements"
+            }
+          },
+          "mode": "managed",
+          "name": "announcements",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_sns_topic"
+        },
+        {
+          "address": "aws_sns_topic_subscription.announced",
+          "expressions": {
+            "endpoint": {
+              "references": [
+                "aws_sqs_queue.announced.arn",
+                "aws_sqs_queue.announced"
+              ]
+            },
+            "protocol": {
+              "constant_value": "sqs"
+            },
+            "topic_arn": {
+              "references": [
+                "aws_sns_topic.announcements.arn",
+                "aws_sns_topic.announcements"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "announced",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_sns_topic_subscription"
+        },
+        {
+          "address": "aws_sqs_queue.announced",
+          "expressions": {
+            "name": {
+              "constant_value": "quiltz-announced"
+            }
+          },
+          "mode": "managed",
+          "name": "announced",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_sqs_queue"
+        },
+        {
+          "address": "aws_sqs_queue.arrivals",
+          "expressions": {
+            "name": {
+              "constant_value": "quiltz-arrivals"
+            }
+          },
+          "mode": "managed",
+          "name": "arrivals",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_sqs_queue"
+        },
+        {
+          "address": "data.archive_file.handler",
+          "expressions": {
+            "output_path": {
+              "references": [
+                "path.module"
+              ]
+            },
+            "source_file": {
+              "references": [
+                "path.module"
+              ]
+            },
+            "type": {
+              "constant_value": "zip"
+            }
+          },
+          "mode": "data",
+          "name": "handler",
+          "provider_config_key": "archive",
+          "schema_version": 0,
+          "type": "archive_file"
+        },
+        {
+          "address": "data.aws_iam_policy_document.assume_by_lambda",
+          "expressions": {
+            "statement": [
+              {
+                "actions": {
+                  "constant_value": [
+                    "sts:AssumeRole"
+                  ]
+                },
+                "effect": {
+                  "constant_value": "Allow"
+                },
+                "principals": [
+                  {
+                    "identifiers": {
+                      "constant_value": [
+                        "lambda.amazonaws.com"
+                      ]
+                    },
+                    "type": {
+                      "constant_value": "Service"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "mode": "data",
+          "name": "assume_by_lambda",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_iam_policy_document"
+        },
+        {
+          "address": "data.aws_iam_policy_document.consume_and_announce",
+          "expressions": {
+            "statement": [
+              {
+                "actions": {
+                  "constant_value": [
+                    "sqs:ReceiveMessage",
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes"
+                  ]
+                },
+                "effect": {
+                  "constant_value": "Allow"
+                },
+                "resources": {
+                  "references": [
+                    "aws_sqs_queue.arrivals.arn",
+                    "aws_sqs_queue.arrivals"
+                  ]
+                },
+                "sid": {
+                  "constant_value": "ReadTheArrivalsQueue"
+                }
+              },
+              {
+                "actions": {
+                  "constant_value": [
+                    "sns:Publish"
+                  ]
+                },
+                "effect": {
+                  "constant_value": "Allow"
+                },
+                "resources": {
+                  "references": [
+                    "aws_sns_topic.announcements.arn",
+                    "aws_sns_topic.announcements"
+                  ]
+                },
+                "sid": {
+                  "constant_value": "AnnounceOnOneTopic"
+                }
+              }
+            ]
+          },
+          "mode": "data",
+          "name": "consume_and_announce",
+          "provider_config_key": "aws",
+          "schema_version": 0,
+          "type": "aws_iam_policy_document"
+        }
+      ],
+      "variables": {
+        "endpoint": {
+          "description": "The emulator's address as seen from the HOST, used by Terraform itself."
+        },
+        "endpoint_from_lambda": {
+          "description": "The emulator's address as seen from INSIDE the Lambda container, which is not the same\nstring. moto executes handlers in a container, so 127.0.0.1 there is the container's own\nloopback and reaches nothing: the first attempt returned EndpointConnectionError trying to\ncall http://127.0.0.1:5599/. On Docker Desktop and colima the host is host.docker.internal.\nNo default, for the same reason the other one has none.\n"
+        }
+      }
+    }
+  },
+  "errored": false,
+  "format_version": "1.2",
+  "output_changes": {
+    "announced_queue_url": {
+      "actions": [
+        "create"
+      ],
+      "after_sensitive": false,
+      "after_unknown": true,
+      "before": null,
+      "before_sensitive": false
+    },
+    "arrivals_queue_url": {
+      "actions": [
+        "create"
+      ],
+      "after_sensitive": false,
+      "after_unknown": true,
+      "before": null,
+      "before_sensitive": false
+    },
+    "function_name": {
+      "actions": [
+        "create"
+      ],
+      "after": "quiltz-consumer",
+      "after_sensitive": false,
+      "after_unknown": false,
+      "before": null,
+      "before_sensitive": false
+    },
+    "topic_arn": {
+      "actions": [
+        "create"
+      ],
+      "after_sensitive": false,
+      "after_unknown": true,
+      "before": null,
+      "before_sensitive": false
+    }
+  },
+  "planned_values": {
+    "outputs": {
+      "announced_queue_url": {
+        "sensitive": false
+      },
+      "arrivals_queue_url": {
+        "sensitive": false
+      },
+      "function_name": {
+        "sensitive": false,
+        "type": "string",
+        "value": "quiltz-consumer"
+      },
+      "topic_arn": {
+        "sensitive": false
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_iam_policy.consume_and_announce",
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "consume_and_announce",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_iam_policy",
+          "values": {
+            "delay_after_policy_creation_in_ms": null,
+            "description": null,
+            "name": "quiltz-consume-and-announce",
+            "path": "/",
+            "tags": null
+          }
+        },
+        {
+          "address": "aws_iam_role.consumer",
+          "identity": {
+            "account_id": null,
+            "name": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "consumer",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "inline_policy": [],
+            "managed_policy_arns": [],
+            "tags_all": {}
+          },
+          "type": "aws_iam_role",
+          "values": {
+            "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+            "description": null,
+            "force_detach_policies": false,
+            "max_session_duration": 3600,
+            "name": "quiltz-consumer",
+            "path": "/",
+            "permissions_boundary": null,
+            "tags": null
+          }
+        },
+        {
+          "address": "aws_iam_role_policy_attachment.consumer",
+          "identity": {
+            "account_id": null,
+            "policy_arn": null,
+            "role": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "consumer",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_iam_role_policy_attachment",
+          "values": {
+            "role": "quiltz-consumer"
+          }
+        },
+        {
+          "address": "aws_lambda_event_source_mapping.arrivals",
+          "identity": {
+            "account_id": null,
+            "region": null,
+            "uuid": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "arrivals",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "amazon_managed_kafka_event_source_config": [],
+            "destination_config": [],
+            "document_db_event_source_config": [],
+            "filter_criteria": [],
+            "metrics_config": [],
+            "provisioned_poller_config": [],
+            "scaling_config": [],
+            "self_managed_event_source": [],
+            "self_managed_kafka_event_source_config": [],
+            "source_access_configuration": [],
+            "tags_all": {}
+          },
+          "type": "aws_lambda_event_source_mapping",
+          "values": {
+            "batch_size": 1,
+            "bisect_batch_on_function_error": null,
+            "destination_config": [],
+            "document_db_event_source_config": [],
+            "enabled": true,
+            "filter_criteria": [],
+            "function_response_types": null,
+            "kms_key_arn": null,
+            "maximum_batching_window_in_seconds": null,
+            "metrics_config": [],
+            "provisioned_poller_config": [],
+            "queues": null,
+            "region": "eu-west-1",
+            "scaling_config": [],
+            "self_managed_event_source": [],
+            "source_access_configuration": [],
+            "starting_position": null,
+            "starting_position_timestamp": null,
+            "tags": null,
+            "timeouts": null,
+            "topics": null,
+            "tumbling_window_in_seconds": null,
+            "use_resource_timeout_for_propagation": null
+          }
+        },
+        {
+          "address": "aws_lambda_function.consumer",
+          "identity": {
+            "account_id": null,
+            "function_name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "consumer",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "architectures": [],
+            "capacity_provider_config": [],
+            "dead_letter_config": [],
+            "durable_config": [],
+            "environment": [
+              {
+                "variables": {}
+              }
+            ],
+            "ephemeral_storage": [],
+            "file_system_config": [],
+            "image_config": [],
+            "logging_config": [],
+            "snap_start": [],
+            "tags_all": {},
+            "tenancy_config": [],
+            "tracing_config": [],
+            "vpc_config": []
+          },
+          "type": "aws_lambda_function",
+          "values": {
+            "capacity_provider_config": [],
+            "code_signing_config_arn": null,
+            "dead_letter_config": [],
+            "description": null,
+            "durable_config": [],
+            "environment": [
+              {}
+            ],
+            "file_system_config": [],
+            "filename": "./.build/handler.zip",
+            "function_name": "quiltz-consumer",
+            "handler": "handler.handler",
+            "image_config": [],
+            "image_uri": null,
+            "kms_key_arn": null,
+            "layers": null,
+            "memory_size": 128,
+            "package_type": "Zip",
+            "publish": false,
+            "publish_to": null,
+            "region": "eu-west-1",
+            "replace_security_groups_on_destroy": null,
+            "replacement_security_group_ids": null,
+            "reserved_concurrent_executions": -1,
+            "runtime": "python3.12",
+            "s3_bucket": null,
+            "s3_key": null,
+            "s3_object_version": null,
+            "skip_destroy": false,
+            "snap_start": [],
+            "source_code_hash": "oBi6T/WXVxxSYnnOdgZ0tM2+e7uOdkM2LkJLZxwxrxc=",
+            "source_kms_key_arn": null,
+            "tags": null,
+            "tenancy_config": [],
+            "timeout": 30,
+            "timeouts": null,
+            "use_resource_timeout_for_propagation": null,
+            "vpc_config": []
+          }
+        },
+        {
+          "address": "aws_sns_topic.announcements",
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "announcements",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_sns_topic",
+          "values": {
+            "application_failure_feedback_role_arn": null,
+            "application_success_feedback_role_arn": null,
+            "application_success_feedback_sample_rate": null,
+            "archive_policy": null,
+            "content_based_deduplication": false,
+            "delivery_policy": null,
+            "display_name": null,
+            "fifo_topic": false,
+            "firehose_failure_feedback_role_arn": null,
+            "firehose_success_feedback_role_arn": null,
+            "firehose_success_feedback_sample_rate": null,
+            "http_failure_feedback_role_arn": null,
+            "http_success_feedback_role_arn": null,
+            "http_success_feedback_sample_rate": null,
+            "kms_master_key_id": null,
+            "lambda_failure_feedback_role_arn": null,
+            "lambda_success_feedback_role_arn": null,
+            "lambda_success_feedback_sample_rate": null,
+            "name": "quiltz-announcements",
+            "region": "eu-west-1",
+            "sqs_failure_feedback_role_arn": null,
+            "sqs_success_feedback_role_arn": null,
+            "sqs_success_feedback_sample_rate": null,
+            "tags": null
+          }
+        },
+        {
+          "address": "aws_sns_topic_subscription.announced",
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "announced",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_sns_topic_subscription",
+          "values": {
+            "confirmation_timeout_in_minutes": 1,
+            "delivery_policy": null,
+            "endpoint_auto_confirms": false,
+            "filter_policy": null,
+            "protocol": "sqs",
+            "raw_message_delivery": false,
+            "redrive_policy": null,
+            "region": "eu-west-1",
+            "replay_policy": null,
+            "subscription_role_arn": null
+          }
+        },
+        {
+          "address": "aws_sqs_queue.announced",
+          "identity": {
+            "url": null
+          },
+          "identity_schema_version": 1,
+          "mode": "managed",
+          "name": "announced",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_sqs_queue",
+          "values": {
+            "content_based_deduplication": false,
+            "delay_seconds": 0,
+            "fifo_queue": false,
+            "kms_master_key_id": null,
+            "max_message_size": 262144,
+            "message_retention_seconds": 345600,
+            "name": "quiltz-announced",
+            "receive_wait_time_seconds": 0,
+            "region": "eu-west-1",
+            "tags": null,
+            "timeouts": null,
+            "visibility_timeout_seconds": 30
+          }
+        },
+        {
+          "address": "aws_sqs_queue.arrivals",
+          "identity": {
+            "url": null
+          },
+          "identity_schema_version": 1,
+          "mode": "managed",
+          "name": "arrivals",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_sqs_queue",
+          "values": {
+            "content_based_deduplication": false,
+            "delay_seconds": 0,
+            "fifo_queue": false,
+            "kms_master_key_id": null,
+            "max_message_size": 262144,
+            "message_retention_seconds": 345600,
+            "name": "quiltz-arrivals",
+            "receive_wait_time_seconds": 0,
+            "region": "eu-west-1",
+            "tags": null,
+            "timeouts": null,
+            "visibility_timeout_seconds": 30
+          }
+        },
+        {
+          "address": "data.aws_iam_policy_document.consume_and_announce",
+          "mode": "data",
+          "name": "consume_and_announce",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "statement": [
+              {
+                "actions": [
+                  false,
+                  false,
+                  false
+                ],
+                "condition": [],
+                "not_principals": [],
+                "principals": [],
+                "resources": [
+                  false
+                ]
+              },
+              {
+                "actions": [
+                  false
+                ],
+                "condition": [],
+                "not_principals": [],
+                "principals": [],
+                "resources": [
+                  false
+                ]
+              }
+            ]
+          },
+          "type": "aws_iam_policy_document",
+          "values": {
+            "override_json": null,
+            "override_policy_documents": null,
+            "policy_id": null,
+            "source_json": null,
+            "source_policy_documents": null,
+            "statement": [
+              {
+                "actions": [
+                  "sqs:DeleteMessage",
+                  "sqs:GetQueueAttributes",
+                  "sqs:ReceiveMessage"
+                ],
+                "condition": [],
+                "effect": "Allow",
+                "not_actions": null,
+                "not_principals": [],
+                "not_resources": null,
+                "principals": [],
+                "resources": [
+                  null
+                ],
+                "sid": "ReadTheArrivalsQueue"
+              },
+              {
+                "actions": [
+                  "sns:Publish"
+                ],
+                "condition": [],
+                "effect": "Allow",
+                "not_actions": null,
+                "not_principals": [],
+                "not_resources": null,
+                "principals": [],
+                "resources": [
+                  null
+                ],
+                "sid": "AnnounceOnOneTopic"
+              }
+            ],
+            "version": null
+          }
+        }
+      ]
+    }
+  },
+  "prior_state": {
+    "format_version": "1.0",
+    "terraform_version": "1.16.0",
+    "values": {
+      "outputs": {
+        "function_name": {
+          "sensitive": false,
+          "type": "string",
+          "value": "quiltz-consumer"
+        }
+      },
+      "root_module": {
+        "resources": [
+          {
+            "address": "data.archive_file.handler",
+            "mode": "data",
+            "name": "handler",
+            "provider_name": "registry.terraform.io/hashicorp/archive",
+            "schema_version": 0,
+            "sensitive_values": {
+              "source": []
+            },
+            "type": "archive_file",
+            "values": {
+              "exclude_symlink_directories": null,
+              "excludes": null,
+              "id": "83a132dd37520bd905d02392f0b9bd805e4c236d",
+              "output_base64sha256": "oBi6T/WXVxxSYnnOdgZ0tM2+e7uOdkM2LkJLZxwxrxc=",
+              "output_base64sha512": "xRNRgELJSAu4KPgtKVQQeF9+NQOJO9izb38kPcZBmYoczXwYM28pQ01kdtSDYsXL8UY1/aYVEH47O0Y1GBUykg==",
+              "output_file_mode": null,
+              "output_md5": "08148ad6225f5553c58ae427d5afa966",
+              "output_path": "./.build/handler.zip",
+              "output_sha": "83a132dd37520bd905d02392f0b9bd805e4c236d",
+              "output_sha256": "a018ba4ff597571c526279ce760674b4cdbe7bbb8e7643362e424b671c31af17",
+              "output_sha512": "c513518042c9480bb828f82d295410785f7e3503893bd8b36f7f243dc641998a1ccd7c18336f29434d6476d48362c5cbf14635fda615107e3b3b463518153292",
+              "output_size": 606,
+              "source": [],
+              "source_content": null,
+              "source_content_filename": null,
+              "source_dir": null,
+              "source_file": "./lambda/handler.py",
+              "type": "zip"
+            }
+          },
+          {
+            "address": "data.aws_iam_policy_document.assume_by_lambda",
+            "mode": "data",
+            "name": "assume_by_lambda",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "schema_version": 0,
+            "sensitive_values": {
+              "statement": [
+                {
+                  "actions": [
+                    false
+                  ],
+                  "condition": [],
+                  "not_actions": [],
+                  "not_principals": [],
+                  "not_resources": [],
+                  "principals": [
+                    {
+                      "identifiers": [
+                        false
+                      ]
+                    }
+                  ],
+                  "resources": []
+                }
+              ]
+            },
+            "type": "aws_iam_policy_document",
+            "values": {
+              "id": "2690255455",
+              "json": "{\n  \"Version\": \"2012-10-17\",\n  \"Statement\": [\n    {\n      \"Effect\": \"Allow\",\n      \"Action\": \"sts:AssumeRole\",\n      \"Principal\": {\n        \"Service\": \"lambda.amazonaws.com\"\n      }\n    }\n  ]\n}",
+              "minified_json": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"}}]}",
+              "override_json": null,
+              "override_policy_documents": null,
+              "policy_id": null,
+              "source_json": null,
+              "source_policy_documents": null,
+              "statement": [
+                {
+                  "actions": [
+                    "sts:AssumeRole"
+                  ],
+                  "condition": [],
+                  "effect": "Allow",
+                  "not_actions": [],
+                  "not_principals": [],
+                  "not_resources": [],
+                  "principals": [
+                    {
+                      "identifiers": [
+                        "lambda.amazonaws.com"
+                      ],
+                      "type": "Service"
+                    }
+                  ],
+                  "resources": [],
+                  "sid": ""
+                }
+              ],
+              "version": "2012-10-17"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "relevant_attributes": [
+    {
+      "attribute": [
+        "arn"
+      ],
+      "resource": "aws_iam_policy.consume_and_announce"
+    },
+    {
+      "attribute": [
+        "function_name"
+      ],
+      "resource": "aws_lambda_function.consumer"
+    },
+    {
+      "attribute": [
+        "url"
+      ],
+      "resource": "aws_sqs_queue.announced"
+    },
+    {
+      "attribute": [
+        "json"
+      ],
+      "resource": "data.aws_iam_policy_document.consume_and_announce"
+    },
+    {
+      "attribute": [
+        "arn"
+      ],
+      "resource": "aws_sqs_queue.arrivals"
+    },
+    {
+      "attribute": [
+        "output_base64sha256"
+      ],
+      "resource": "data.archive_file.handler"
+    },
+    {
+      "attribute": [
+        "name"
+      ],
+      "resource": "aws_iam_role.consumer"
+    },
+    {
+      "attribute": [
+        "output_path"
+      ],
+      "resource": "data.archive_file.handler"
+    },
+    {
+      "attribute": [
+        "arn"
+      ],
+      "resource": "aws_iam_role.consumer"
+    },
+    {
+      "attribute": [
+        "arn"
+      ],
+      "resource": "aws_lambda_function.consumer"
+    },
+    {
+      "attribute": [
+        "json"
+      ],
+      "resource": "data.aws_iam_policy_document.assume_by_lambda"
+    },
+    {
+      "attribute": [
+        "arn"
+      ],
+      "resource": "aws_sns_topic.announcements"
+    },
+    {
+      "attribute": [
+        "url"
+      ],
+      "resource": "aws_sqs_queue.arrivals"
+    },
+    {
+      "attribute": [
+        "arn"
+      ],
+      "resource": "aws_sqs_queue.announced"
+    }
+  ],
+  "resource_changes": [
+    {
+      "action_reason": "read_because_config_unknown",
+      "address": "data.aws_iam_policy_document.consume_and_announce",
+      "change": {
+        "actions": [
+          "read"
+        ],
+        "after": {
+          "override_json": null,
+          "override_policy_documents": null,
+          "policy_id": null,
+          "source_json": null,
+          "source_policy_documents": null,
+          "statement": [
+            {
+              "actions": [
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes",
+                "sqs:ReceiveMessage"
+              ],
+              "condition": [],
+              "effect": "Allow",
+              "not_actions": null,
+              "not_principals": [],
+              "not_resources": null,
+              "principals": [],
+              "resources": [
+                null
+              ],
+              "sid": "ReadTheArrivalsQueue"
+            },
+            {
+              "actions": [
+                "sns:Publish"
+              ],
+              "condition": [],
+              "effect": "Allow",
+              "not_actions": null,
+              "not_principals": [],
+              "not_resources": null,
+              "principals": [],
+              "resources": [
+                null
+              ],
+              "sid": "AnnounceOnOneTopic"
+            }
+          ],
+          "version": null
+        },
+        "after_sensitive": {
+          "statement": [
+            {
+              "actions": [
+                false,
+                false,
+                false
+              ],
+              "condition": [],
+              "not_principals": [],
+              "principals": [],
+              "resources": [
+                false
+              ]
+            },
+            {
+              "actions": [
+                false
+              ],
+              "condition": [],
+              "not_principals": [],
+              "principals": [],
+              "resources": [
+                false
+              ]
+            }
+          ]
+        },
+        "after_unknown": {
+          "id": true,
+          "json": true,
+          "minified_json": true,
+          "statement": [
+            {
+              "actions": [
+                false,
+                false,
+                false
+              ],
+              "condition": [],
+              "not_principals": [],
+              "principals": [],
+              "resources": [
+                true
+              ]
+            },
+            {
+              "actions": [
+                false
+              ],
+              "condition": [],
+              "not_principals": [],
+              "principals": [],
+              "resources": [
+                true
+              ]
+            }
+          ]
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "data",
+      "name": "consume_and_announce",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_iam_policy_document"
+    },
+    {
+      "address": "aws_iam_policy.consume_and_announce",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "delay_after_policy_creation_in_ms": null,
+          "description": null,
+          "name": "quiltz-consume-and-announce",
+          "path": "/",
+          "tags": null
+        },
+        "after_identity": {
+          "arn": null
+        },
+        "after_sensitive": {
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "attachment_count": true,
+          "id": true,
+          "name_prefix": true,
+          "policy": true,
+          "policy_id": true,
+          "tags_all": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "consume_and_announce",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_iam_policy"
+    },
+    {
+      "address": "aws_iam_role.consumer",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+          "description": null,
+          "force_detach_policies": false,
+          "max_session_duration": 3600,
+          "name": "quiltz-consumer",
+          "path": "/",
+          "permissions_boundary": null,
+          "tags": null
+        },
+        "after_identity": {
+          "account_id": null,
+          "name": null
+        },
+        "after_sensitive": {
+          "inline_policy": [],
+          "managed_policy_arns": [],
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "create_date": true,
+          "id": true,
+          "inline_policy": true,
+          "managed_policy_arns": true,
+          "name_prefix": true,
+          "tags_all": true,
+          "unique_id": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "consumer",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_iam_role"
+    },
+    {
+      "address": "aws_iam_role_policy_attachment.consumer",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "role": "quiltz-consumer"
+        },
+        "after_identity": {
+          "account_id": null,
+          "policy_arn": null,
+          "role": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "id": true,
+          "policy_arn": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "consumer",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_iam_role_policy_attachment"
+    },
+    {
+      "address": "aws_lambda_event_source_mapping.arrivals",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "batch_size": 1,
+          "bisect_batch_on_function_error": null,
+          "destination_config": [],
+          "document_db_event_source_config": [],
+          "enabled": true,
+          "filter_criteria": [],
+          "function_response_types": null,
+          "kms_key_arn": null,
+          "maximum_batching_window_in_seconds": null,
+          "metrics_config": [],
+          "provisioned_poller_config": [],
+          "queues": null,
+          "region": "eu-west-1",
+          "scaling_config": [],
+          "self_managed_event_source": [],
+          "source_access_configuration": [],
+          "starting_position": null,
+          "starting_position_timestamp": null,
+          "tags": null,
+          "timeouts": null,
+          "topics": null,
+          "tumbling_window_in_seconds": null,
+          "use_resource_timeout_for_propagation": null
+        },
+        "after_identity": {
+          "account_id": null,
+          "region": null,
+          "uuid": null
+        },
+        "after_sensitive": {
+          "amazon_managed_kafka_event_source_config": [],
+          "destination_config": [],
+          "document_db_event_source_config": [],
+          "filter_criteria": [],
+          "metrics_config": [],
+          "provisioned_poller_config": [],
+          "scaling_config": [],
+          "self_managed_event_source": [],
+          "self_managed_kafka_event_source_config": [],
+          "source_access_configuration": [],
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "amazon_managed_kafka_event_source_config": true,
+          "arn": true,
+          "destination_config": [],
+          "document_db_event_source_config": [],
+          "event_source_arn": true,
+          "filter_criteria": [],
+          "function_arn": true,
+          "function_name": true,
+          "id": true,
+          "last_modified": true,
+          "last_processing_result": true,
+          "maximum_record_age_in_seconds": true,
+          "maximum_retry_attempts": true,
+          "metrics_config": [],
+          "parallelization_factor": true,
+          "provisioned_poller_config": [],
+          "scaling_config": [],
+          "self_managed_event_source": [],
+          "self_managed_kafka_event_source_config": true,
+          "source_access_configuration": [],
+          "state": true,
+          "state_transition_reason": true,
+          "tags_all": true,
+          "uuid": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "arrivals",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_lambda_event_source_mapping"
+    },
+    {
+      "address": "aws_lambda_function.consumer",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "capacity_provider_config": [],
+          "code_signing_config_arn": null,
+          "dead_letter_config": [],
+          "description": null,
+          "durable_config": [],
+          "environment": [
+            {}
+          ],
+          "file_system_config": [],
+          "filename": "./.build/handler.zip",
+          "function_name": "quiltz-consumer",
+          "handler": "handler.handler",
+          "image_config": [],
+          "image_uri": null,
+          "kms_key_arn": null,
+          "layers": null,
+          "memory_size": 128,
+          "package_type": "Zip",
+          "publish": false,
+          "publish_to": null,
+          "region": "eu-west-1",
+          "replace_security_groups_on_destroy": null,
+          "replacement_security_group_ids": null,
+          "reserved_concurrent_executions": -1,
+          "runtime": "python3.12",
+          "s3_bucket": null,
+          "s3_key": null,
+          "s3_object_version": null,
+          "skip_destroy": false,
+          "snap_start": [],
+          "source_code_hash": "oBi6T/WXVxxSYnnOdgZ0tM2+e7uOdkM2LkJLZxwxrxc=",
+          "source_kms_key_arn": null,
+          "tags": null,
+          "tenancy_config": [],
+          "timeout": 30,
+          "timeouts": null,
+          "use_resource_timeout_for_propagation": null,
+          "vpc_config": []
+        },
+        "after_identity": {
+          "account_id": null,
+          "function_name": null,
+          "region": null
+        },
+        "after_sensitive": {
+          "architectures": [],
+          "capacity_provider_config": [],
+          "dead_letter_config": [],
+          "durable_config": [],
+          "environment": [
+            {
+              "variables": {}
+            }
+          ],
+          "ephemeral_storage": [],
+          "file_system_config": [],
+          "image_config": [],
+          "logging_config": [],
+          "snap_start": [],
+          "tags_all": {},
+          "tenancy_config": [],
+          "tracing_config": [],
+          "vpc_config": []
+        },
+        "after_unknown": {
+          "architectures": true,
+          "arn": true,
+          "capacity_provider_config": [],
+          "code_sha256": true,
+          "dead_letter_config": [],
+          "durable_config": [],
+          "environment": [
+            {
+              "variables": true
+            }
+          ],
+          "ephemeral_storage": true,
+          "file_system_config": [],
+          "id": true,
+          "image_config": [],
+          "invoke_arn": true,
+          "last_modified": true,
+          "logging_config": true,
+          "qualified_arn": true,
+          "qualified_invoke_arn": true,
+          "response_streaming_invoke_arn": true,
+          "role": true,
+          "signing_job_arn": true,
+          "signing_profile_version_arn": true,
+          "snap_start": [],
+          "source_code_size": true,
+          "tags_all": true,
+          "tenancy_config": [],
+          "tracing_config": true,
+          "version": true,
+          "vpc_config": []
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "consumer",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_lambda_function"
+    },
+    {
+      "address": "aws_sns_topic.announcements",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "application_failure_feedback_role_arn": null,
+          "application_success_feedback_role_arn": null,
+          "application_success_feedback_sample_rate": null,
+          "archive_policy": null,
+          "content_based_deduplication": false,
+          "delivery_policy": null,
+          "display_name": null,
+          "fifo_topic": false,
+          "firehose_failure_feedback_role_arn": null,
+          "firehose_success_feedback_role_arn": null,
+          "firehose_success_feedback_sample_rate": null,
+          "http_failure_feedback_role_arn": null,
+          "http_success_feedback_role_arn": null,
+          "http_success_feedback_sample_rate": null,
+          "kms_master_key_id": null,
+          "lambda_failure_feedback_role_arn": null,
+          "lambda_success_feedback_role_arn": null,
+          "lambda_success_feedback_sample_rate": null,
+          "name": "quiltz-announcements",
+          "region": "eu-west-1",
+          "sqs_failure_feedback_role_arn": null,
+          "sqs_success_feedback_role_arn": null,
+          "sqs_success_feedback_sample_rate": null,
+          "tags": null
+        },
+        "after_identity": {
+          "arn": null
+        },
+        "after_sensitive": {
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "beginning_archive_time": true,
+          "fifo_throughput_scope": true,
+          "id": true,
+          "name_prefix": true,
+          "owner": true,
+          "policy": true,
+          "signature_version": true,
+          "tags_all": true,
+          "tracing_config": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "announcements",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_sns_topic"
+    },
+    {
+      "address": "aws_sns_topic_subscription.announced",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "confirmation_timeout_in_minutes": 1,
+          "delivery_policy": null,
+          "endpoint_auto_confirms": false,
+          "filter_policy": null,
+          "protocol": "sqs",
+          "raw_message_delivery": false,
+          "redrive_policy": null,
+          "region": "eu-west-1",
+          "replay_policy": null,
+          "subscription_role_arn": null
+        },
+        "after_identity": {
+          "arn": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "arn": true,
+          "confirmation_was_authenticated": true,
+          "endpoint": true,
+          "filter_policy_scope": true,
+          "id": true,
+          "owner_id": true,
+          "pending_confirmation": true,
+          "topic_arn": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "announced",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_sns_topic_subscription"
+    },
+    {
+      "address": "aws_sqs_queue.announced",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "content_based_deduplication": false,
+          "delay_seconds": 0,
+          "fifo_queue": false,
+          "kms_master_key_id": null,
+          "max_message_size": 262144,
+          "message_retention_seconds": 345600,
+          "name": "quiltz-announced",
+          "receive_wait_time_seconds": 0,
+          "region": "eu-west-1",
+          "tags": null,
+          "timeouts": null,
+          "visibility_timeout_seconds": 30
+        },
+        "after_identity": {
+          "url": null
+        },
+        "after_sensitive": {
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "deduplication_scope": true,
+          "fifo_throughput_limit": true,
+          "id": true,
+          "kms_data_key_reuse_period_seconds": true,
+          "name_prefix": true,
+          "policy": true,
+          "redrive_allow_policy": true,
+          "redrive_policy": true,
+          "sqs_managed_sse_enabled": true,
+          "tags_all": true,
+          "url": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "announced",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_sqs_queue"
+    },
+    {
+      "address": "aws_sqs_queue.arrivals",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "content_based_deduplication": false,
+          "delay_seconds": 0,
+          "fifo_queue": false,
+          "kms_master_key_id": null,
+          "max_message_size": 262144,
+          "message_retention_seconds": 345600,
+          "name": "quiltz-arrivals",
+          "receive_wait_time_seconds": 0,
+          "region": "eu-west-1",
+          "tags": null,
+          "timeouts": null,
+          "visibility_timeout_seconds": 30
+        },
+        "after_identity": {
+          "url": null
+        },
+        "after_sensitive": {
+          "tags_all": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "deduplication_scope": true,
+          "fifo_throughput_limit": true,
+          "id": true,
+          "kms_data_key_reuse_period_seconds": true,
+          "name_prefix": true,
+          "policy": true,
+          "redrive_allow_policy": true,
+          "redrive_policy": true,
+          "sqs_managed_sse_enabled": true,
+          "tags_all": true,
+          "url": true
+        },
+        "before": null,
+        "before_sensitive": false
+      },
+      "mode": "managed",
+      "name": "arrivals",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "type": "aws_sqs_queue"
+    }
+  ],
+  "terraform_version": "1.16.0",
+  "timestamp": "2026-08-28T09:31:28Z",
+  "variables": {
+    "endpoint": {
+      "value": "http://127.0.0.1:5599"
+    },
+    "endpoint_from_lambda": {
+      "value": "http://host.docker.internal:5599"
+    }
+  }
+}
