@@ -20,12 +20,17 @@ def test_every_limit_that_has_been_found_is_here_and_the_count_is_asserted() -> 
     """
     names = {limit.name for limit in NOT_REPRODUCED}
     assert names == {
-        "IAM policy evaluation",
+        "IAM condition evaluation",
         "S3 consistency behaviour",
         "request cost",
         "service quotas",
     }
     assert len(NOT_REPRODUCED) == 4
+    assert "IAM policy evaluation" not in names, (
+        "the IAM entry was renamed on 28-8-2026 because it claimed the emulator cannot evaluate "
+        "policies at all, which is false: with its opt-in access control on it evaluates Action "
+        "and Resource correctly. What it ignores is the Condition. See the module docstring."
+    )
     assert "event source polling" not in names, (
         "this was added as a fifth limit on 28-8-2026 and removed the same day, because it was "
         "false: moto does poll, and the handler had been failing to reach the emulator from "

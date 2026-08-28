@@ -25,6 +25,18 @@ could not reach the emulator, not because nothing ran. Once the handler was give
 `host.docker.internal`, a message on the queue produced an announcement in about two seconds with
 no manual invocation at all.
 
+THE IAM ENTRY WAS ALSO WRONG, IN THE OTHER DIRECTION, AND WAS REWRITTEN ON 28-8-2026 RATHER
+THAN REMOVED. It said the emulator accepts a policy document and stores it, and cannot tell you
+whether that policy would permit or deny. The first half is true by default. The second half is
+not true at all: moto ships an opt-in access control mode, and with it on, a user carrying an
+explicit Deny is refused, a policy naming one queue does not reach another, and moto's own
+module-level TODO claiming Resource is unsupported is out of date. Anyone who knows moto would
+have said so, and the entry would have cost more credibility than the limit was worth.
+
+The real limit is narrower and more useful: conditions are ignored. That is worth knowing,
+because a condition is precisely how a policy is made safe. The measurement is committed at
+docs/evidence/iam/what-moto-evaluates.txt and re-derived by scripts/measure_boundary.py.
+
 The lesson is not about moto. **An absence is not a mechanism.** Reading "nothing arrived" as
 "nothing was triggered" skipped over a second explanation that was sitting in the invocation
 response, and it would have shipped a false limitation in the one file this repository asks a
@@ -50,11 +62,19 @@ class Limit:
 
 NOT_REPRODUCED: tuple[Limit, ...] = (
     Limit(
-        name="IAM policy evaluation",
-        what_the_emulator_does="accepts a policy document and stores it",
+        name="IAM condition evaluation",
+        what_the_emulator_does=(
+            "store every policy and, by default, consult none of them: a user carrying an "
+            "explicit Deny on every action and every resource created a bucket. Its opt-in "
+            "access control does evaluate, and it gets Action and Resource right"
+        ),
         what_it_therefore_cannot_tell_you=(
-            "whether the policy would actually permit or deny the call at AWS. A policy that is "
-            "over-broad, contradictory or meaningless is applied here exactly as a correct one is"
+            "whether a Condition would permit or deny. With enforcement switched on, a policy "
+            "allowing sqs:* only from a source address the caller does not have permitted the "
+            "call anyway. A condition is how a policy narrows itself, by source address, by "
+            "MFA, by tag, by VPC endpoint, so the element a policy most often relies on to be "
+            "safe is simply absent from the decision here. "
+            "Measured in docs/evidence/iam/what-moto-evaluates.txt"
         ),
     ),
     Limit(
@@ -75,10 +95,14 @@ NOT_REPRODUCED: tuple[Limit, ...] = (
     ),
     Limit(
         name="service quotas",
-        what_the_emulator_does="accepts as many resources as are asked for",
+        what_the_emulator_does=(
+            "accept as many resources as are asked for: 130 buckets in a row without one "
+            "refusal, where an AWS account stops at 100 and needs an increase to go further"
+        ),
         what_it_therefore_cannot_tell_you=(
             "that a plan exceeding an account limit will fail at apply. Every quota is infinite "
-            "here, so no test can encounter one"
+            "here, so no test in this repository can meet one that a real account would meet. "
+            "Measured in docs/evidence/iam/what-moto-evaluates.txt"
         ),
     ),
 )

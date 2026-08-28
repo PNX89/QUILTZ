@@ -1,0 +1,34 @@
+$ uv run scripts/measure_boundary.py
+moto 5.2.3, boto3 1.43.82
+
+Each server below is started by this script with the setting named beside it, so the
+setting cannot leak between measurements.
+
+1. INITIAL_NO_AUTH_ACTION_COUNT unset, which is the default and the mode this
+   repository's own suite runs in.
+   A user carrying an explicit Deny on every action and every resource created a
+   bucket: True
+   The policy is stored and reads back correctly. It is simply never consulted.
+
+2. INITIAL_NO_AUTH_ACTION_COUNT=5. Enforcement is on after the bootstrap window.
+   Policy: Allow sqs:* on arn:aws:sqs:eu-west-1:123456789012:allowed-queue only.
+   The same operation, GetQueueAttributes, against each of two existing queues:
+     allowed-queue  allowed: True
+     other-queue    refused: True
+   So Action and Resource are both evaluated. moto's own access_control.py carries a
+   module-level TODO saying Resource is unsupported; measured here, it is supported.
+
+3. INITIAL_NO_AUTH_ACTION_COUNT=4. Enforcement on, and a Condition that cannot hold.
+   Policy: Allow sqs:* on * only when aws:SourceIp is 203.0.113.7/32.
+   The caller's address is not that. The call was allowed anyway:
+     condition ignored: True
+
+That last line is the boundary. Conditions are how a policy narrows itself, by source
+address, by MFA, by tag, by VPC endpoint. Here they are absent from the decision, so a
+policy that is only safe because of its condition passes exactly as one without it.
+
+4. Service quotas, on a default server.
+   Buckets created one after another without a single refusal: 130
+   An AWS account stops at 100 by default and needs a quota increase for more. Nothing
+   here counts, so no test in this repository can ever meet a limit that a real account
+   would meet.
