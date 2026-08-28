@@ -20,13 +20,19 @@ PLANS="$ROOT/docs/evidence/plans"
 # Terraform and OpenTofu both plan modules/storage, and comparing those two files is the whole
 # point of src/quiltz/planparity.py. modules/identity is planned by Terraform alone because it
 # is consumed by src/quiltz/policies.py as a source of policy documents rather than as a
-# parity subject. modules/events is NOT planned here: its archive_file data source rewrites a
-# zip on every run, so its plan is not a stable artefact and committing one would produce
-# drift that means nothing.
+# parity subject. modules/events is planned by Terraform alone, for its policy documents.
+#
+# It was excluded at first on the assumption that its archive_file data source rewrites the zip
+# on every run and would produce meaningless drift. Measured, that is wrong: archive_file stamps
+# a fixed epoch, and two consecutive plans of modules/events differ only in `timestamp` and in
+# the order of `relevant_attributes`, which is already handled. Excluding it meant half the
+# policy documents in this repository were never linted while a headline claim said they all
+# were.
 TARGETS=(
   "storage|terraform|terraform.json|-var bucket_name=quiltz-evidence"
   "storage|tofu|opentofu.json|-var bucket_name=quiltz-evidence"
   "identity|terraform|identity-terraform.json|-var bucket_arn=arn:aws:s3:::quiltz-evidence"
+  "events|terraform|events-terraform.json|-var endpoint_from_lambda=http://host.docker.internal:5599"
 )
 
 if ! curl -fsS --max-time 5 "$ENDPOINT" >/dev/null 2>&1; then
@@ -63,4 +69,4 @@ if not plan.get('resource_changes'):
 "
 done
 
-echo "done. Three plans written to docs/evidence/plans."
+echo "done. ${#TARGETS[@]} plans written to docs/evidence/plans."

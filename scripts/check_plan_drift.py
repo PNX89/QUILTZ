@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -34,8 +35,14 @@ from quiltz.planparity import compare
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PLANS = ROOT / "docs" / "evidence" / "plans"
 
+# Anchored to the exact path, not matched as a leaf name anywhere.
+#
+# This file forgave the leaf name `timestamp` wherever it appeared, which is the identical hole
+# that was removed from planparity's exemptions earlier the same day and then reproduced here
+# without noticing. A resource with a `timestamp` attribute would have had every change to it
+# forgiven by the check that exists to catch changes.
 FORGIVEN = {
-    "timestamp": "when the plan was produced, and two runs cannot be simultaneous",
+    r"\.timestamp": "when the plan was produced, and two runs cannot be simultaneous",
 }
 
 
@@ -64,8 +71,17 @@ def main() -> int:
     drifted = False
     for path in plans:
         relative = path.relative_to(ROOT).as_posix()
-        differences = compare(committed(relative), json.loads(path.read_text()))
-        real = [d for d in differences if d.leaf not in FORGIVEN]
+        try:
+            before = committed(relative)
+        except subprocess.CalledProcessError:
+            # Not in HEAD at all. That is a new plan rather than a drifted one, and it is worth
+            # saying so plainly: a traceback here reads as a broken check rather than as a file
+            # that has not been committed yet.
+            print(f"  {relative}: NEW, not in HEAD. Commit it with the change that added it.")
+            drifted = True
+            continue
+        differences = compare(before, json.loads(path.read_text()))
+        real = [d for d in differences if not any(re.fullmatch(p, d.path) for p in FORGIVEN)]
         if not real:
             print(f"  {relative}: unchanged ({len(differences)} forgiven)")
             continue
