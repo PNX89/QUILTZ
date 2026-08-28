@@ -1,0 +1,46 @@
+---
+# Source: evidence-collector/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: quiltz-evidence-collector
+  labels:
+    app.kubernetes.io/name: evidence-collector
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: evidence-collector/templates/cronjob.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: quiltz-evidence-collector
+  labels:
+    app.kubernetes.io/name: evidence-collector
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: collector
+              image: "ghcr.io/pnx89/evidence-collector:0.1.0"
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: QUILTZ_BUCKET
+                  value: "quiltz-evidence"
+                - name: AWS_REGION
+                  value: "eu-west-1"
+              resources:
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+                requests:
+                  cpu: 50m
+                  memory: 64Mi

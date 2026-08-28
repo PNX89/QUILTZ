@@ -1,0 +1,19 @@
+# Defaults chosen so that `helm template` with no overrides renders something valid. A chart
+# whose defaults do not render is a chart nobody can inspect without knowing its secrets.
+image:
+  repository: ghcr.io/pnx89/evidence-collector
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+schedule: "0 * * * *"
+
+bucket: quiltz-evidence
+region: eu-west-1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
