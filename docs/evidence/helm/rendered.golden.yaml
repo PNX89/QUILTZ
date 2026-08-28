@@ -28,6 +28,12 @@ spec:
       template:
         spec:
           restartPolicy: Never
+          # The ServiceAccount this chart creates, actually used. It was created and never
+          # referenced until 28-8-2026, so every pod ran under the namespace `default` while
+          # the chart shipped an identity implying otherwise. A ServiceAccount nothing
+          # references is worse than none: it reads as scoped access that was never granted.
+          serviceAccountName: quiltz-evidence-collector
+          automountServiceAccountToken: false
           containers:
             - name: collector
               image: "ghcr.io/pnx89/evidence-collector:0.1.0"
