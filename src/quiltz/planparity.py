@@ -22,27 +22,98 @@ would be created:
 
 The allowlist is the point. Anything outside it is a real disagreement and fails, so the day a
 version bump introduces a fourteenth difference this stops rather than absorbing it.
+
+AND THE ALLOWLIST IS BY PATH, NOT BY LEAF NAME. It was by leaf name until 28-8-2026, which meant
+the entry admitting OpenTofu's variable metadata also forgave `.resource_changes[0].type`: the
+kind of resource the plan would build. Changing one plan's bucket to a DynamoDB table produced
+sixteen differences and none of them counted. Every exemption is now anchored to the place it
+was measured in, and `test_a_changed_resource_type_is_not_forgiven` is the test that keeps it
+that way.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
-__all__ = ["TOOL_METADATA_LEAVES", "Difference", "compare"]
+__all__ = ["TOOL_METADATA_PATHS", "Difference", "Exemption", "compare"]
 
-# Leaf paths that describe the tool rather than the infrastructure. A path ends with these
-# names, so `provider_name` matches wherever it appears. Every entry carries the reason it is
-# here, because an unexplained exemption is how an allowlist becomes a way of passing.
-TOOL_METADATA_LEAVES: dict[str, str] = {
-    "applyable": "Terraform 1.16 emits it, OpenTofu 1.12 does not",
-    "complete": "Terraform 1.16 emits it, OpenTofu 1.12 does not",
-    "required": "OpenTofu emits variable metadata Terraform omits",
-    "type": "OpenTofu emits variable metadata Terraform omits",
-    "provider_name": "the registry the identical provider was fetched from",
-    "full_name": "the registry the identical provider was fetched from",
-    "terraform_version": "which binary produced the plan, which is the thing being varied here",
-    "timestamp": "when the plan was produced, and the two runs cannot be simultaneous",
-}
+# Paths that describe the tool rather than the infrastructure.
+#
+# THESE ARE PATHS, NOT LEAF NAMES, AND THE DIFFERENCE IS THE WHOLE POINT. They were leaf names
+# until 28-8-2026, matched wherever they appeared, and that was a hole big enough to drive the
+# headline claim through. `type` is on this list to forgive the variable metadata OpenTofu emits
+# at `.configuration.root_module.variables.<name>.type`. As a bare leaf name it also forgave
+# `.resource_changes[0].type`, which is the kind of resource the plan would create. Rewriting one
+# plan's `aws_s3_bucket` to `aws_dynamodb_table` produced sixteen differences and zero of them
+# were counted as real. A guard that forgives the single most important field in the document it
+# is guarding is worse than no guard, because it reads as one.
+#
+# Each entry is anchored against the full path, so an exemption cannot travel. Every one carries
+# the reason it exists, because an unexplained exemption is how an allowlist becomes a way of
+# passing.
+
+
+class Exemption:
+    """One place where the two tools may differ, and why."""
+
+    __slots__ = ("leaf", "reason", "where")
+
+    def __init__(self, leaf: str, where: str, reason: str) -> None:
+        self.leaf, self.where, self.reason = leaf, where, reason
+
+    def covers(self, path: str) -> bool:
+        return re.fullmatch(self.where, path) is not None
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"Exemption({self.leaf!r}, {self.where!r})"
+
+
+TOOL_METADATA_PATHS: tuple[Exemption, ...] = (
+    Exemption(
+        "applyable",
+        r"\.applyable",
+        "Terraform 1.16 emits it at the root, OpenTofu 1.12 does not",
+    ),
+    Exemption(
+        "complete",
+        r"\.complete",
+        "Terraform 1.16 emits it at the root, OpenTofu 1.12 does not",
+    ),
+    Exemption(
+        "required",
+        r"\.configuration\.root_module\.variables\.[^.]+\.required",
+        "OpenTofu records whether a variable is required and Terraform omits it",
+    ),
+    Exemption(
+        "type",
+        r"\.configuration\.root_module\.variables\.[^.]+\.type",
+        "OpenTofu records a variable's declared type and Terraform omits it. Scoped to "
+        "variables: a type anywhere else is the kind of resource being created",
+    ),
+    Exemption(
+        "provider_name",
+        r"\.(planned_values\.root_module\.resources\[\d+\]|resource_changes\[\d+\])"
+        r"\.provider_name",
+        "the registry the identical provider was fetched from, "
+        "registry.terraform.io against registry.opentofu.org",
+    ),
+    Exemption(
+        "full_name",
+        r"\.configuration\.provider_config\.[^.]+\.full_name",
+        "the same registry difference, recorded once more in the provider configuration",
+    ),
+    Exemption(
+        "terraform_version",
+        r"\.terraform_version",
+        "which binary produced the plan, which is the thing being varied here",
+    ),
+    Exemption(
+        "timestamp",
+        r"\.timestamp",
+        "when the plan was produced, and the two runs cannot be simultaneous",
+    ),
+)
 
 
 class Difference:
@@ -59,7 +130,8 @@ class Difference:
 
     @property
     def is_tool_metadata(self) -> bool:
-        return self.leaf in TOOL_METADATA_LEAVES
+        """Whether this exact path is exempt. Matched against the path, never the leaf alone."""
+        return any(e.covers(self.path) for e in TOOL_METADATA_PATHS)
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"Difference({self.path!r}, {self.detail!r})"
