@@ -20,6 +20,7 @@ import pytest
 from quiltz.policies import (
     ATTRIBUTE_KINDS,
     Document,
+    Finding,
     Kind,
     documents_in_plan,
     lint,
@@ -373,3 +374,40 @@ def test_the_set_of_trust_checks_is_pinned() -> None:
         "TRUST_PRINCIPAL_STAR",
         "TRUST_UNEXPECTED_ACTION",
     }, f"the set of trust checks changed to {sorted(codes)}. Add the test with the check."
+
+
+def test_no_finding_carries_a_blank_title() -> None:
+    """parliament returns an empty title on this API, exactly as it returns an empty severity.
+
+    The module docstring warned against presenting a blank as a rating and named severity. The
+    title is blank by the same mechanism, was stored anyway, and the warning sat one field away
+    from the thing it described.
+
+    Checked over real findings from a genuinely over-broad policy, rather than over the clean
+    plans, because a clean document produces no findings and this would pass vacuously.
+    """
+    over_broad = Document(
+        address="aws_iam_policy.too_much",
+        attribute="policy",
+        body={
+            "Version": "2012-10-17",
+            "Statement": [{"Effect": "Allow", "Action": "s3:*", "Resource": "*"}],
+        },
+    )
+    findings = lint(over_broad)
+    assert findings, "the fixture is not over-broad enough to produce a finding"
+    for finding in findings:
+        assert finding.title, f"{finding.issue} has a blank title"
+        assert finding.issue, "a finding with no issue code cannot be looked up"
+
+
+def test_the_severity_field_is_not_reported_at_all() -> None:
+    """The other half of the same warning, asserted rather than trusted.
+
+    If a severity ever appears on Finding it will be parliament's blank unless somebody has
+    chosen a scale deliberately, and an invented rating on a security finding is worse than none.
+    """
+    assert not hasattr(Finding, "severity"), (
+        "Finding grew a severity field. parliament's is an empty string on this API, so it can "
+        "only have been invented by the reporting layer"
+    )

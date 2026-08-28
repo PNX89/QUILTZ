@@ -9,11 +9,18 @@ the Terraform plan, so they are the exact JSON the modules would send. A suite t
 hand-written examples would pass forever while the module drifted, which is the same shape of
 defect as a README whose numbers were true once.
 
-A NOTE ON SEVERITY, BECAUSE IT WOULD BE EASY TO REPORT A BLANK AS A RATING. `Finding.severity`
-is an empty string on the objects `analyze_policy_string` returns; parliament fills it from its
-own configuration only along its command-line path. So nothing here reports a severity. The
-issue code and the title are real, and a blank field presented as "severity: LOW" would be a
-number invented by the reporting layer.
+A NOTE ON THE BLANK FIELDS, BECAUSE IT WOULD BE EASY TO REPORT ONE AS A RATING. `severity` is
+an empty string on the objects `analyze_policy_string` returns; parliament fills it from its own
+configuration only along its command-line path. So nothing here reports a severity, and a blank
+presented as "severity: LOW" would be a rating invented by the reporting layer.
+
+`title` IS BLANK BY EXACTLY THE SAME MECHANISM, and this paragraph said it was real until
+28-8-2026 while the code three hundred lines below stored `str(finding.title)` into a field the
+rest of the module treats as meaningful. So the warning was correct, and the file was committing
+the very thing it warned about, one field over. What is genuinely real from the Python API is
+the issue code and the detail. An identity finding therefore takes its title from its issue
+code, which is the human-readable name parliament gives it, and a test asserts no finding
+anywhere carries a blank title.
 
 PARLIAMENT CANNOT LINT A TRUST POLICY, AND THIS IS THE PART WORTH READING. Handed a perfectly
 valid `assume_role_policy` it answers `MALFORMED`, detail "Statement contains neither Resource
@@ -202,7 +209,11 @@ def _lint_identity(document: Document) -> list[Finding]:
         Finding(
             origin=document.origin,
             issue=str(finding.issue),
-            title=str(finding.title),
+            # parliament's title is an empty string on this API, exactly as its severity is.
+            # Storing the blank would put a field the rest of this module treats as meaningful
+            # into every identity finding with nothing in it, which is the reporting-layer
+            # invention the module docstring warns about.
+            title=str(finding.title) or str(finding.issue),
             detail=str(finding.detail)[:300],
         )
         for finding in analysed.findings
