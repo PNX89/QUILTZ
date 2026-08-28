@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "evidence-collector values",
+  "description": "helm validates every install and every template render against this. A string check over the rendered output was the previous guard and it missed an empty value entirely: `bucket: \"\"` renders `value: \"\"`, which contains no <no value>, no null and no None.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["image", "schedule", "bucket", "region", "resources"],
+  "properties": {
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag", "pullPolicy"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "const": "latest" },
+          "description": "latest is the version that changes without a commit saying so"
+        },
+        "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "schedule": {
+      "type": "string",
+      "pattern": "^(\\S+\\s+){4}\\S+$",
+      "description": "five cron fields. A schedule of the wrong arity is rejected by the API server much later than here"
+    },
+    "bucket": { "type": "string", "minLength": 1 },
+    "region": { "type": "string", "minLength": 1 },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requests", "limits"],
+      "properties": {
+        "requests": { "$ref": "#/definitions/quantities" },
+        "limits": { "$ref": "#/definitions/quantities" }
+      }
+    }
+  },
+  "definitions": {
+    "quantities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu", "memory"],
+      "properties": {
+        "cpu": { "type": "string", "minLength": 1 },
+        "memory": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
