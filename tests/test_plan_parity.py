@@ -13,7 +13,7 @@ import json
 import pathlib
 from typing import Any
 
-from quiltz.planparity import TOOL_METADATA_PATHS, compare
+from quiltz.planparity import ORDER_INSENSITIVE, TOOL_METADATA_PATHS, compare
 
 PLANS = pathlib.Path(__file__).resolve().parents[1] / "docs" / "evidence" / "plans"
 
@@ -139,3 +139,68 @@ def test_no_exemption_travels_beyond_where_it_was_measured() -> None:
             assert not exemption.covers(path), (
                 f"exemption {exemption.leaf} forgives {path}, which is not where it was measured"
             )
+
+
+def test_a_reordered_list_is_not_a_disagreement() -> None:
+    """CI found this before a person did, which is the argument for regenerating in CI at all.
+
+    The identity plan regenerated on a Linux runner carried the same four relevant_attributes as
+    the one committed from macOS, with two of them swapped, and the positional walk read that as
+    four disagreements about infrastructure.
+
+    The reordering reproduced here is the exact one CI hit.
+    """
+    plan = json.loads((PLANS / "identity-terraform.json").read_text())
+    swapped = copy.deepcopy(plan)
+    entries = swapped["relevant_attributes"]
+    entries[1], entries[2] = entries[2], entries[1]
+    assert entries != plan["relevant_attributes"], "the swap did not change anything"
+
+    assert compare(plan, swapped) == [], "a pure reordering is being read as a disagreement"
+
+
+def test_sorting_that_list_does_not_stop_it_being_compared() -> None:
+    """The failure mode of the easy fix, tested directly.
+
+    Exempting relevant_attributes would also have passed this test's mutations, which is why it
+    was rejected: it would have stopped the check noticing that the set of attributes changed at
+    all. Sorting gives up the sequence and keeps every element under comparison.
+
+    Each mutation is asserted separately. A single assertion over all three would pass while two
+    of them silently did nothing.
+    """
+    plan = json.loads((PLANS / "identity-terraform.json").read_text())
+
+    changed = copy.deepcopy(plan)
+    changed["relevant_attributes"][0]["attribute"] = ["something_else"]
+    assert compare(plan, changed), "a changed attribute was forgiven"
+
+    removed = copy.deepcopy(plan)
+    removed["relevant_attributes"].pop()
+    assert compare(plan, removed), "a removed entry was forgiven"
+
+    added = copy.deepcopy(plan)
+    added["relevant_attributes"].append({"attribute": ["id"], "resource": "aws_iam_role.other"})
+    assert compare(plan, added), "an added entry was forgiven"
+
+
+def test_every_order_insensitive_path_says_why() -> None:
+    """One entry today. It is a dict rather than a bare tuple so it cannot grow silently."""
+    assert ORDER_INSENSITIVE, "the mechanism exists with nothing declared, which is a dead branch"
+    for path, reason in ORDER_INSENSITIVE.items():
+        assert path.startswith("."), path
+        assert len(reason) > 40, f"{path} is sorted without a stated reason"
+
+
+def test_canonical_leaves_an_ordered_list_alone() -> None:
+    """Only the declared paths are sorted, so resource_changes order is still compared.
+
+    Without this, widening ORDER_INSENSITIVE to everything would pass every other test here.
+    """
+    plan = json.loads((PLANS / "terraform.json").read_text())
+    reordered = copy.deepcopy(plan)
+    reordered["resource_changes"].reverse()
+    assert compare(plan, reordered), (
+        "reversing resource_changes was forgiven, so sorting is no longer confined to the "
+        "paths that declared it"
+    )
