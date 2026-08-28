@@ -1,0 +1,36 @@
+name: CI
+
+# Nothing here reaches a cloud account and nothing here needs a credential. Every module is
+# applied to an emulator, and the two binaries under test are single static files fetched from
+# their publishers at pinned versions.
+#
+# THREE JOBS, AND THE SPLIT IS THE POINT. This repository's first sentence is that an emulator
+# result is worth something only when its boundary is stated, so the boundary of its own test
+# rig is drawn here rather than blurred:
+#
+#   checks      lint, types and the offline suite. No emulator, no container, no binaries.
+#   emulator    the modules applied to moto_server, under BOTH Terraform and OpenTofu.
+#   container   the one leg that needs a Docker runtime, because moto executes Lambda handlers
+#               inside a container. Five of this repository's six legs are container-free and
+#               this one is not, and saying "container-free" without that qualifier would be
+#               exactly the over-reading the repository exists to refuse.
+#
+# The shared legs live in PNX89/.github and are pinned to a tag rather than a branch, so a
+# commit in that repository cannot turn this badge red.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: lint, types and the offline suite
+    uses: PNX89/.github/.github/workflows/checks.yml@v1
+    with:
+      python-versions: '["3.11", "3.12", "3.13"]'
+      sync-args: "--dev"
+      run-mypy: true
