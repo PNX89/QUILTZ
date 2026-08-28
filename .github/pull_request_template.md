@@ -1,4 +1,4 @@
-<!-- Generated for QUENCHZ. The checks below are the ones this repository's CI runs. -->
+<!-- Generated for QUILTZ. The checks below are the ones this repository's CI runs. -->
 
 ## What this changes
 
@@ -12,6 +12,11 @@
       `uv run ruff format --check .`
       `uv run mypy`
       `uv run pytest -q`
+      `uv run pytest -m helm`
+      `uv run scripts/fetch_tools.sh`
+      `uv run scripts/measure_boundary.py`
+      `uv run pytest -m emulator`
+      `uv run pytest -m container`
 - [ ] No number in the README was edited by hand. Anything generated was regenerated.
 - [ ] The prose still describes the code. No claim in the README has quietly stopped being true.
 - [ ] Public behaviour that changed is in `CHANGELOG.md` under the unreleased heading.

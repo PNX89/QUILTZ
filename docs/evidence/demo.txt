@@ -1,0 +1,74 @@
+
+What the emulator established
+-----------------------------
+    + the configuration parses and plans under two independent binaries, and applying it twice
+    under each of them leaves nothing to do the second time
+    + the same configuration produces the same plan under Terraform and under OpenTofu
+    + every IAM policy document the modules write is either linted or named as one a plan
+    cannot show, with nothing falling between the two
+    + a second concurrent apply is refused by a lock and exits, rather than waiting or
+    corrupting shared state
+    + a Helm chart renders and lints without any cluster existing
+
+What it cannot tell you, whatever the tests say
+-----------------------------------------------
+    - IAM condition evaluation
+        it does: store every policy and, by default, consult none of them: a user carrying an
+        explicit Deny on every action and every resource created a bucket. Its opt-in access
+        control does evaluate, and it gets Action and Resource right
+        so it cannot say: whether a Condition would permit or deny. With enforcement switched
+        on, a policy allowing sqs:* only from a source address the caller does not have
+        permitted the call anyway. A condition is how a policy narrows itself, by source
+        address, by MFA, by tag, by VPC endpoint, so the element a policy most often relies on
+        to be safe is simply absent from the decision here. Measured in
+        docs/evidence/iam/what-moto-evaluates.txt
+    - S3 consistency
+        it does: answer every read from local state at once, including a read of a bucket
+        configuration that was changed a moment earlier
+        so it cannot say: that the sequence in this repository has a race at AWS. Object reads
+        are not the issue and have not been since 2020: S3 is strongly read-after-write
+        consistent for PUT and DELETE in every region. BUCKET CONFIGURATION is not, and AWS
+        says so in the same document, recommending a wait of about fifteen minutes after
+        enabling versioning before issuing writes. modules/storage enables versioning and the
+        playbook puts objects into that bucket seconds later, which the emulator will never
+        once complain about. Nor can it show two writers to one key, where AWS is last-writer-
+        wins with no object locking and no predictable order
+    - request cost
+        it does: charge nothing and count nothing
+        so it cannot say: that a module which converges here would be expensive at AWS. A loop
+        that lists a bucket a thousand times is free in this suite
+    - service quotas
+        it does: accept as many resources as are asked for: 130 buckets in a row without one
+        refusal, where an AWS account stops at 100 and needs an increase to go further
+        so it cannot say: that a plan exceeding an account limit will fail at apply. Every
+        quota is infinite here, so no test in this repository can meet one that a real account
+        would meet. Measured in docs/evidence/iam/what-moto-evaluates.txt
+
+Two binaries, one configuration
+-------------------------------
+    Terraform 1.16.0 against OpenTofu 1.12.6
+    13 leaves differ, 0 of them about what would be built
+      applyable            .applyable
+      complete             .complete
+      full_name            .configuration.provider_config.aws.full_name
+      required             .configuration.root_module.variables.bucket_name.required
+      type                 .configuration.root_module.variables.bucket_name.type
+      required             .configuration.root_module.variables.endpoint.required
+      type                 .configuration.root_module.variables.endpoint.type
+      provider_name        .planned_values.root_module.resources[0].provider_name
+      provider_name        .planned_values.root_module.resources[1].provider_name
+      provider_name        .resource_changes[0].provider_name
+      provider_name        .resource_changes[1].provider_name
+      terraform_version    .terraform_version
+      timestamp            .timestamp
+
+Every policy the modules write
+------------------------------
+    linted    aws_iam_policy.read_one_bucket.policy                clean
+    linted    aws_iam_role.reader.assume_role_policy               clean
+    linted    aws_iam_role.consumer.assume_role_policy             clean
+    UNREADABLE aws_iam_policy.consume_and_announce.policy          (known after apply)
+
+    The last line is the honest part. That policy interpolates the ARNs of a queue and a topic
+    that do not exist yet, so at plan time it has no body and nothing can lint it. Naming it
+    is the difference between a document that was checked and one that was never visible.
