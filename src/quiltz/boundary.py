@@ -9,10 +9,27 @@ So it is declared once here. The README's first screenful renders from it, the a
 decision record renders from it, and a test asserts all three agree. Adding a fifth limitation
 means editing one list and watching two documents fail until they are regenerated.
 
-The four below are the ones the specification named, and each is a thing moto does not do
-rather than a thing it does badly. That distinction matters: "slower than AWS" is a performance
-note, while "does not evaluate IAM policies" means a test can pass here and the same policy can
-deny in production.
+Each is a thing moto does not do rather than a thing it does badly. That distinction matters:
+"slower than AWS" is a performance note, while "does not evaluate IAM policies" means a test can
+pass here and the same policy can deny in production.
+
+A FIFTH LIMIT WAS ADDED HERE ON 28-8-2026 AND THEN REMOVED THE SAME DAY, AND THE EPISODE IS
+WORTH MORE THAN THE ENTRY WOULD HAVE BEEN. While wiring SQS to Lambda to SNS, a message put on
+the arrivals queue produced no announcement in twelve seconds, so "moto creates the event source
+mapping and never fires it" went in as a limit.
+
+It was false. The handler was being invoked the whole time and dying, because moto runs handlers
+in a container where `127.0.0.1` is the container's own loopback: the invocation returned
+`EndpointConnectionError` against `http://127.0.0.1:5599/`. Nothing arrived because the function
+could not reach the emulator, not because nothing ran. Once the handler was given
+`host.docker.internal`, a message on the queue produced an announcement in about two seconds with
+no manual invocation at all.
+
+The lesson is not about moto. **An absence is not a mechanism.** Reading "nothing arrived" as
+"nothing was triggered" skipped over a second explanation that was sitting in the invocation
+response, and it would have shipped a false limitation in the one file this repository asks a
+reader to trust. What caught it was the test written to guard the entry, which said that if the
+emulator ever started polling the limit must be deleted rather than left standing.
 """
 
 from __future__ import annotations

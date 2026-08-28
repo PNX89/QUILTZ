@@ -1,0 +1,356 @@
+data.archive_file.handler: Reading...
+data.archive_file.handler: Read complete after 0s [id=f3fa4b8c233312f4e09f68a98f1e7b7dd5a6314a]
+data.aws_iam_policy_document.assume_by_lambda: Reading...
+aws_sns_topic.announcements: Refreshing state... [id=arn:aws:sns:eu-west-1:123456789012:quiltz-announcements]
+aws_sqs_queue.arrivals: Refreshing state... [id=http://127.0.0.1:5599/123456789012/quiltz-arrivals]
+aws_sqs_queue.announced: Refreshing state... [id=http://127.0.0.1:5599/123456789012/quiltz-announced]
+data.aws_iam_policy_document.assume_by_lambda: Read complete after 0s [id=2690255455]
+aws_iam_role.consumer: Refreshing state... [id=quiltz-consumer]
+aws_lambda_function.consumer: Refreshing state... [id=quiltz-consumer]
+aws_sns_topic_subscription.announced: Refreshing state... [id=arn:aws:sns:eu-west-1:123456789012:quiltz-announcements:06aaf5eb-1d3d-4fef-a86f-2539d348aaf4]
+aws_iam_policy.consume_and_announce: Refreshing state... [id=arn:aws:iam::123456789012:policy/quiltz-consume-and-announce]
+aws_lambda_event_source_mapping.arrivals: Refreshing state... [id=c4910d7f-a997-4b12-9a03-9e57f1a9527a]
+aws_iam_role_policy_attachment.consumer: Refreshing state... [id=quiltz-consumer/arn:aws:iam::123456789012:policy/quiltz-consume-and-announce]
+
+Note: Objects have changed outside of Terraform
+
+Terraform detected the following changes made outside of Terraform since the
+last "terraform apply" which may have affected this plan:
+
+  # aws_iam_policy.consume_and_announce has been deleted
+  - resource "aws_iam_policy" "consume_and_announce" {
+      - arn              = "arn:aws:iam::123456789012:policy/quiltz-consume-and-announce" -> null
+        id               = "arn:aws:iam::123456789012:policy/quiltz-consume-and-announce"
+        name             = "quiltz-consume-and-announce"
+        # (7 unchanged attributes hidden)
+    }
+
+  # aws_iam_role.consumer has been deleted
+  - resource "aws_iam_role" "consumer" {
+      - arn                   = "arn:aws:iam::123456789012:role/quiltz-consumer" -> null
+        id                    = "quiltz-consumer"
+      - name                  = "quiltz-consumer" -> null
+        # (11 unchanged attributes hidden)
+    }
+
+  # aws_lambda_function.consumer has been deleted
+  - resource "aws_lambda_function" "consumer" {
+      - arn                            = "arn:aws:lambda:eu-west-1:123456789012:function:quiltz-consumer" -> null
+        id                             = "quiltz-consumer"
+        # (30 unchanged attributes hidden)
+
+        # (3 unchanged blocks hidden)
+    }
+
+  # aws_sns_topic.announcements has been deleted
+  - resource "aws_sns_topic" "announcements" {
+      - arn                                      = "arn:aws:sns:eu-west-1:123456789012:quiltz-announcements" -> null
+        id                                       = "arn:aws:sns:eu-west-1:123456789012:quiltz-announcements"
+        name                                     = "quiltz-announcements"
+        # (30 unchanged attributes hidden)
+    }
+
+  # aws_sqs_queue.announced has been deleted
+  - resource "aws_sqs_queue" "announced" {
+      - arn                               = "arn:aws:sqs:eu-west-1:123456789012:quiltz-announced" -> null
+        id                                = "http://127.0.0.1:5599/123456789012/quiltz-announced"
+        name                              = "quiltz-announced"
+      - url                               = "http://127.0.0.1:5599/123456789012/quiltz-announced" -> null
+        # (18 unchanged attributes hidden)
+    }
+
+  # aws_sqs_queue.arrivals has been deleted
+  - resource "aws_sqs_queue" "arrivals" {
+      - arn                               = "arn:aws:sqs:eu-west-1:123456789012:quiltz-arrivals" -> null
+        id                                = "http://127.0.0.1:5599/123456789012/quiltz-arrivals"
+        name                              = "quiltz-arrivals"
+      - url                               = "http://127.0.0.1:5599/123456789012/quiltz-arrivals" -> null
+        # (18 unchanged attributes hidden)
+    }
+
+
+Unless you have made equivalent changes to your configuration, or ignored the
+relevant attributes using ignore_changes, the following plan may include
+actions to undo or respond to these changes.
+
+─────────────────────────────────────────────────────────────────────────────
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+ <= read (data resources)
+
+Terraform will perform the following actions:
+
+  # data.aws_iam_policy_document.consume_and_announce will be read during apply
+  # (config refers to values not yet known)
+ <= data "aws_iam_policy_document" "consume_and_announce" {
+      + id            = (known after apply)
+      + json          = (known after apply)
+      + minified_json = (known after apply)
+
+      + statement {
+          + actions   = [
+              + "sqs:DeleteMessage",
+              + "sqs:GetQueueAttributes",
+              + "sqs:ReceiveMessage",
+            ]
+          + effect    = "Allow"
+          + resources = [
+              + (known after apply),
+            ]
+          + sid       = "ReadTheArrivalsQueue"
+        }
+      + statement {
+          + actions   = [
+              + "sns:Publish",
+            ]
+          + effect    = "Allow"
+          + resources = [
+              + (known after apply),
+            ]
+          + sid       = "AnnounceOnOneTopic"
+        }
+    }
+
+  # aws_iam_policy.consume_and_announce will be created
+  + resource "aws_iam_policy" "consume_and_announce" {
+      + arn              = (known after apply)
+      + attachment_count = (known after apply)
+      + id               = (known after apply)
+      + name             = "quiltz-consume-and-announce"
+      + name_prefix      = (known after apply)
+      + path             = "/"
+      + policy           = (known after apply)
+      + policy_id        = (known after apply)
+      + tags_all         = (known after apply)
+    }
+
+  # aws_iam_role.consumer will be created
+  + resource "aws_iam_role" "consumer" {
+      + arn                   = (known after apply)
+      + assume_role_policy    = jsonencode(
+            {
+              + Statement = [
+                  + {
+                      + Action    = "sts:AssumeRole"
+                      + Effect    = "Allow"
+                      + Principal = {
+                          + Service = "lambda.amazonaws.com"
+                        }
+                    },
+                ]
+              + Version   = "2012-10-17"
+            }
+        )
+      + create_date           = (known after apply)
+      + force_detach_policies = false
+      + id                    = (known after apply)
+      + managed_policy_arns   = (known after apply)
+      + max_session_duration  = 3600
+      + name                  = "quiltz-consumer"
+      + name_prefix           = (known after apply)
+      + path                  = "/"
+      + tags_all              = (known after apply)
+      + unique_id             = (known after apply)
+
+      + inline_policy (known after apply)
+    }
+
+  # aws_iam_role_policy_attachment.consumer will be created
+  + resource "aws_iam_role_policy_attachment" "consumer" {
+      + id         = (known after apply)
+      + policy_arn = (known after apply)
+      + role       = "quiltz-consumer"
+    }
+
+  # aws_lambda_event_source_mapping.arrivals will be created
+  + resource "aws_lambda_event_source_mapping" "arrivals" {
+      + arn                           = (known after apply)
+      + batch_size                    = 1
+      + enabled                       = true
+      + event_source_arn              = (known after apply)
+      + function_arn                  = (known after apply)
+      + function_name                 = (known after apply)
+      + id                            = (known after apply)
+      + last_modified                 = (known after apply)
+      + last_processing_result        = (known after apply)
+      + maximum_record_age_in_seconds = (known after apply)
+      + maximum_retry_attempts        = (known after apply)
+      + parallelization_factor        = (known after apply)
+      + region                        = "eu-west-1"
+      + state                         = (known after apply)
+      + state_transition_reason       = (known after apply)
+      + tags_all                      = (known after apply)
+      + uuid                          = (known after apply)
+
+      + amazon_managed_kafka_event_source_config (known after apply)
+
+      + self_managed_kafka_event_source_config (known after apply)
+    }
+
+  # aws_lambda_function.consumer will be created
+  + resource "aws_lambda_function" "consumer" {
+      + architectures                  = (known after apply)
+      + arn                            = (known after apply)
+      + code_sha256                    = (known after apply)
+      + filename                       = "./.build/handler.zip"
+      + function_name                  = "quiltz-consumer"
+      + handler                        = "handler.handler"
+      + id                             = (known after apply)
+      + invoke_arn                     = (known after apply)
+      + last_modified                  = (known after apply)
+      + memory_size                    = 128
+      + package_type                   = "Zip"
+      + publish                        = false
+      + qualified_arn                  = (known after apply)
+      + qualified_invoke_arn           = (known after apply)
+      + region                         = "eu-west-1"
+      + reserved_concurrent_executions = -1
+      + response_streaming_invoke_arn  = (known after apply)
+      + role                           = (known after apply)
+      + runtime                        = "python3.12"
+      + signing_job_arn                = (known after apply)
+      + signing_profile_version_arn    = (known after apply)
+      + skip_destroy                   = false
+      + source_code_hash               = "vOx3n9gZ7aVD0SMHQKHrDd1TXezNsxqlY+GpkzUExnI="
+      + source_code_size               = (known after apply)
+      + tags_all                       = (known after apply)
+      + timeout                        = 30
+      + version                        = (known after apply)
+
+      + environment {
+          + variables = (known after apply)
+        }
+
+      + ephemeral_storage (known after apply)
+
+      + logging_config (known after apply)
+
+      + tracing_config (known after apply)
+    }
+
+  # aws_sns_topic.announcements will be created
+  + resource "aws_sns_topic" "announcements" {
+      + arn                         = (known after apply)
+      + beginning_archive_time      = (known after apply)
+      + content_based_deduplication = false
+      + fifo_throughput_scope       = (known after apply)
+      + fifo_topic                  = false
+      + id                          = (known after apply)
+      + name                        = "quiltz-announcements"
+      + name_prefix                 = (known after apply)
+      + owner                       = (known after apply)
+      + policy                      = (known after apply)
+      + region                      = "eu-west-1"
+      + signature_version           = (known after apply)
+      + tags_all                    = (known after apply)
+      + tracing_config              = (known after apply)
+    }
+
+  # aws_sns_topic_subscription.announced will be created
+  + resource "aws_sns_topic_subscription" "announced" {
+      + arn                             = (known after apply)
+      + confirmation_timeout_in_minutes = 1
+      + confirmation_was_authenticated  = (known after apply)
+      + endpoint                        = (known after apply)
+      + endpoint_auto_confirms          = false
+      + filter_policy_scope             = (known after apply)
+      + id                              = (known after apply)
+      + owner_id                        = (known after apply)
+      + pending_confirmation            = (known after apply)
+      + protocol                        = "sqs"
+      + raw_message_delivery            = false
+      + region                          = "eu-west-1"
+      + topic_arn                       = (known after apply)
+    }
+
+  # aws_sqs_queue.announced will be created
+  + resource "aws_sqs_queue" "announced" {
+      + arn                               = (known after apply)
+      + content_based_deduplication       = false
+      + deduplication_scope               = (known after apply)
+      + delay_seconds                     = 0
+      + fifo_queue                        = false
+      + fifo_throughput_limit             = (known after apply)
+      + id                                = (known after apply)
+      + kms_data_key_reuse_period_seconds = (known after apply)
+      + max_message_size                  = 262144
+      + message_retention_seconds         = 345600
+      + name                              = "quiltz-announced"
+      + name_prefix                       = (known after apply)
+      + policy                            = (known after apply)
+      + receive_wait_time_seconds         = 0
+      + redrive_allow_policy              = (known after apply)
+      + redrive_policy                    = (known after apply)
+      + region                            = "eu-west-1"
+      + sqs_managed_sse_enabled           = (known after apply)
+      + tags_all                          = (known after apply)
+      + url                               = (known after apply)
+      + visibility_timeout_seconds        = 30
+    }
+
+  # aws_sqs_queue.arrivals will be created
+  + resource "aws_sqs_queue" "arrivals" {
+      + arn                               = (known after apply)
+      + content_based_deduplication       = false
+      + deduplication_scope               = (known after apply)
+      + delay_seconds                     = 0
+      + fifo_queue                        = false
+      + fifo_throughput_limit             = (known after apply)
+      + id                                = (known after apply)
+      + kms_data_key_reuse_period_seconds = (known after apply)
+      + max_message_size                  = 262144
+      + message_retention_seconds         = 345600
+      + name                              = "quiltz-arrivals"
+      + name_prefix                       = (known after apply)
+      + policy                            = (known after apply)
+      + receive_wait_time_seconds         = 0
+      + redrive_allow_policy              = (known after apply)
+      + redrive_policy                    = (known after apply)
+      + region                            = "eu-west-1"
+      + sqs_managed_sse_enabled           = (known after apply)
+      + tags_all                          = (known after apply)
+      + url                               = (known after apply)
+      + visibility_timeout_seconds        = 30
+    }
+
+Plan: 9 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  ~ announced_queue_url = "http://127.0.0.1:5599/123456789012/quiltz-announced" -> (known after apply)
+  ~ arrivals_queue_url  = "http://127.0.0.1:5599/123456789012/quiltz-arrivals" -> (known after apply)
+  ~ topic_arn           = "arn:aws:sns:eu-west-1:123456789012:quiltz-announcements" -> (known after apply)
+aws_iam_role.consumer: Creating...
+aws_sqs_queue.announced: Creating...
+aws_sqs_queue.arrivals: Creating...
+aws_sns_topic.announcements: Creating...
+aws_iam_role.consumer: Creation complete after 0s [id=quiltz-consumer]
+aws_sns_topic.announcements: Creation complete after 0s [id=arn:aws:sns:eu-west-1:123456789012:quiltz-announcements]
+aws_lambda_function.consumer: Creating...
+aws_lambda_function.consumer: Creation complete after 5s [id=quiltz-consumer]
+aws_sqs_queue.arrivals: Still creating... [00m10s elapsed]
+aws_sqs_queue.announced: Still creating... [00m10s elapsed]
+aws_sqs_queue.announced: Still creating... [00m20s elapsed]
+aws_sqs_queue.arrivals: Still creating... [00m20s elapsed]
+aws_sqs_queue.announced: Creation complete after 25s [id=http://127.0.0.1:5599/123456789012/quiltz-announced]
+aws_sqs_queue.arrivals: Creation complete after 25s [id=http://127.0.0.1:5599/123456789012/quiltz-arrivals]
+data.aws_iam_policy_document.consume_and_announce: Reading...
+aws_sns_topic_subscription.announced: Creating...
+data.aws_iam_policy_document.consume_and_announce: Read complete after 0s [id=1905588219]
+aws_lambda_event_source_mapping.arrivals: Creating...
+aws_iam_policy.consume_and_announce: Creating...
+aws_sns_topic_subscription.announced: Creation complete after 0s [id=arn:aws:sns:eu-west-1:123456789012:quiltz-announcements:df053a91-7d62-4ff0-b57f-1fc5a540eeff]
+aws_iam_policy.consume_and_announce: Creation complete after 0s [id=arn:aws:iam::123456789012:policy/quiltz-consume-and-announce]
+aws_lambda_event_source_mapping.arrivals: Creation complete after 0s [id=4ef42c0a-e42b-4f38-bd65-0395ef8dc0a5]
+aws_iam_role_policy_attachment.consumer: Creating...
+aws_iam_role_policy_attachment.consumer: Creation complete after 0s [id=quiltz-consumer/arn:aws:iam::123456789012:policy/quiltz-consume-and-announce]
+
+Apply complete! Resources: 9 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+announced_queue_url = "http://127.0.0.1:5599/123456789012/quiltz-announced"
+arrivals_queue_url = "http://127.0.0.1:5599/123456789012/quiltz-arrivals"
+function_name = "quiltz-consumer"
+topic_arn = "arn:aws:sns:eu-west-1:123456789012:quiltz-announcements"
