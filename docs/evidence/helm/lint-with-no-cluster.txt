@@ -1,3 +1,7 @@
+$ KUBECONFIG=/nonexistent helm lint charts/evidence-collector
+# helm v3.21.4+g813176c
+# KUBECONFIG names a path that does not exist: confirmed absent
+
 ==> Linting charts/evidence-collector
 [INFO] Chart.yaml: icon is recommended
 
