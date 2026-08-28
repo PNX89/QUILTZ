@@ -1,10 +1,10 @@
 {
-  "advisory_locks_during_an_apply_with_work": 1,
+  "an_advisory_lock_is_held_during_an_apply_with_work": 1,
   "advisory_locks_after_that_apply_finished": 0,
   "exit_code_of_a_second_apply_during_it": 1,
   "exit_code_of_a_no_op_apply_during_a_held_lock": 1,
-  "advisory_locks_seen_during_a_lone_no_op_apply": 1,
-  "advisory_locks_while_the_doomed_apply_held_one": 1,
+  "an_advisory_lock_is_held_during_a_lone_no_op_apply": 1,
+  "an_advisory_lock_is_held_while_the_doomed_apply_runs": 1,
   "advisory_locks_after_sigkill": 0,
   "exit_code_of_the_apply_after_sigkill": 0,
   "advisory_locks_before_force_unlock_ran": 0,
