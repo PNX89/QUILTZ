@@ -1,18 +1,32 @@
-"""The event path, and the exact difference between provisioned and exercised.
+"""The event path, exercised end to end, and the correction that got it there.
 
 The specification bought this row on the promise of a path "exercised end to end on the
-emulator". It cannot be, and finding out is what added the fifth entry to `boundary`. moto
-creates the event source mapping, reports it enabled, and never fires it: a message on the
-arrivals queue produced no invocation in twelve seconds.
+emulator". It is. A message put on the arrivals queue reaches the topic in about two seconds,
+through a Lambda the emulator invoked on its own, with the announcement read back off a
+subscribed queue.
 
-So the claim is split, and both halves are checked.
+THIS DOCSTRING SAID THE OPPOSITE FOR MOST OF 28-8-2026, and it went on saying it after the
+claim had been retracted everywhere else, which is worth more as a warning than the paragraph
+it replaced. It stated as present-tense fact that moto "creates the event source mapping,
+reports it enabled, and never fires it", on the evidence that a message produced no invocation
+in twelve seconds. The handler was being invoked the whole time and dying: inside moto's Lambda
+container `127.0.0.1` is the container, so it could not reach the emulator. An invocation that
+fails looks exactly like one that never happened, from the outside.
+
+The boundary entry built on that was deleted the same day. This paragraph was not, and survived
+in the file that tests the very thing it was wrong about. A claim can outlive its own correction
+in any file nobody thought to re-read.
+
+What the two halves are, now that both hold:
 
   PROVISIONED  the queue, the topic, the subscription, the role, the policy, the function and
-               the mapping, asserted to exist in the plan.
-  EXERCISED    the handler, in a real container, publishing to the topic, with the notification
-               read back off a subscribed queue.
+               the mapping, asserted to exist in the plan. Offline, no runtime.
+  EXERCISED    the handler, in a real container, triggered by the mapping rather than by hand,
+               publishing to the topic, with the notification read back off a subscribed queue.
 
-The trigger is the part that is provisioned and not exercised, and the README says so.
+The second needs Docker and is marked `container` for that reason. Five of this repository's six
+legs need no runtime and this one does, and saying "container-free" without that qualifier would
+be exactly the over-reading the repository exists to refuse.
 """
 
 from __future__ import annotations
