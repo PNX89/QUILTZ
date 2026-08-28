@@ -106,6 +106,12 @@ jobs:
         run: uv run scripts/measure_boundary.py
       - name: fail if the committed transcript no longer matches what was measured
         run: git diff --exit-code -- docs/evidence/iam
+      - name: apply twice under each binary and require the second to do nothing
+        run: |
+          scripts/prove_convergence.sh terraform http://127.0.0.1:5599 quiltz-converge-terraform
+          scripts/prove_convergence.sh tofu http://127.0.0.1:5599 quiltz-converge-tofu
+      - name: fail if either convergence transcript has changed
+        run: git diff --exit-code -- docs/evidence/convergence
       - name: the emulator suite
         run: uv run pytest -m emulator
 

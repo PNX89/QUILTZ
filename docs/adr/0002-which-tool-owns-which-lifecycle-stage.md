@@ -77,7 +77,9 @@ verify.
 will fight the world. Rejected on the reasoning above.
 
 **Ansible provisions too, Terraform absent.** Loses the plan, the two-binary parity check and the
-state lock, which are three of this repository's four other claims.
+state lock, which are three of the five entries in `boundary.PROVED`. That sentence said "four"
+until 28-8-2026 and had said it since the first commit, while the list it refers to has always
+had five.
 
 **Terraform manages contents with `ignore_changes`.** Rejected because it is the answer that
 looks like a decision and is actually a suppression: the diff is still computed and then hidden,

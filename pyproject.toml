@@ -54,9 +54,12 @@ packages = ["src/quiltz"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Two markers, and both are DESELECTED by default rather than skipped, because a skipped test
-# reports as a pass and nobody reads it.
-#   emulator: needs moto_server listening
+# Three markers, and all three are DESELECTED by default rather than skipped, because a skipped
+# test reports as a pass and nobody reads it. The comment said two and listed two while three
+# were registered and three deselected, which is a small thing that says something about how
+# carefully the rest is being read.
+#   emulator:  needs moto_server listening
+#   helm:      needs the helm binary
 #   container: needs a Docker runtime, which is only the Lambda execution leg
 addopts = "-q -m 'not emulator and not container and not helm'"
 markers = [

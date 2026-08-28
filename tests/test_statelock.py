@@ -145,7 +145,7 @@ def test_the_summary_numbers_say_what_the_facts_say() -> None:
     numbers = json.loads((EVIDENCE / "summary.json").read_text(encoding="utf-8"))
 
     # An apply with work takes exactly one advisory lock, and gives it back.
-    assert numbers["advisory_locks_during_an_apply_with_work"] == 1
+    assert numbers["an_advisory_lock_is_held_during_an_apply_with_work"] == 1
     assert numbers["advisory_locks_after_that_apply_finished"] == 0
 
     # A second apply during it is refused rather than made to wait.
@@ -156,13 +156,15 @@ def test_the_summary_numbers_say_what_the_facts_say() -> None:
         "a no-op apply was NOT refused by a held lock. If that has become true the fifth "
         "measured fact needs rewriting again, and the module docstring with it"
     )
-    assert numbers["advisory_locks_seen_during_a_lone_no_op_apply"] == 1, (
-        "sampled every 50ms, a lone no-op apply showed no lock. That is what a coarse sample "
-        "used to show, and it is how the wrong conclusion was reached the first time"
+    assert numbers["an_advisory_lock_is_held_during_a_lone_no_op_apply"] == 1, (
+        "sampled every 50ms, a lone no-op apply showed no lock at all. That is what a coarse "
+        "sample used to show, and it is how the wrong conclusion was reached the first time. "
+        "Held-or-not rather than a count: macOS saw one lock and a Linux runner saw two, and "
+        "the claim was never about how many"
     )
 
     # The lock dies with the session, so the kill leaves nothing behind.
-    assert numbers["advisory_locks_while_the_doomed_apply_held_one"] == 1, (
+    assert numbers["an_advisory_lock_is_held_while_the_doomed_apply_runs"] == 1, (
         "the apply that was about to be killed held no lock, so zero afterwards would prove "
         "nothing at all"
     )
