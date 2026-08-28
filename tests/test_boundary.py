@@ -8,7 +8,11 @@ being written down three times.
 
 from __future__ import annotations
 
+import pathlib
+
 from quiltz.boundary import NOT_REPRODUCED, PROVED, Limit
+
+CONVERGENCE = pathlib.Path(__file__).resolve().parents[1] / "docs" / "evidence" / "convergence"
 
 
 def test_every_limit_that_has_been_found_is_here_and_the_count_is_asserted() -> None:
@@ -51,7 +55,7 @@ def test_every_limit_says_what_it_costs_the_reader_and_not_only_what_is_missing(
 
 def test_the_proved_column_is_not_empty_and_does_not_overreach() -> None:
     """The other half of the table. A boundary printed alone reads as an apology."""
-    assert len(PROVED) >= 4
+    assert len(PROVED) == 5
     forbidden = ("production", "at aws", "correct at", "guarantee")
     for claim in PROVED:
         lowered = claim.lower()
@@ -78,4 +82,45 @@ def test_the_consistency_limit_names_the_race_in_this_repository() -> None:
     assert "2020" in said, (
         "without the date this reads as though object reads were still the problem, which "
         "would be describing S3 as it stopped being six years ago"
+    )
+
+
+def test_each_proved_claim_names_something_this_repository_actually_establishes() -> None:
+    """The PROVED column, checked by content rather than by length.
+
+    The only guard on this list used to be `len(PROVED) >= 4`, which passes on a list of five
+    fabricated sentences and on a list with an entry removed. It is the column a reader is most
+    likely to take at face value and it was the least defended thing in the file.
+
+    Each claim is tied here to the specific artefact that establishes it. A claim that cannot be
+    tied to one does not belong in this column.
+    """
+    claims = {claim[:40]: claim for claim in PROVED}
+    assert len(claims) == len(PROVED), "two claims start with the same forty characters"
+
+    joined = "\n".join(PROVED)
+
+    # Convergence: both binaries apply twice, and the second run must find nothing to do.
+    assert "applying it twice" in joined, (
+        "the convergence claim no longer says what convergence means, and 'converges' on its "
+        "own was a word rather than a measurement for as long as it stood alone"
+    )
+    for binary in ("terraform", "tofu"):
+        transcript = CONVERGENCE / f"{binary}.txt"
+        assert transcript.exists(), f"{binary} is claimed to converge with no transcript"
+        text = transcript.read_text(encoding="utf-8")
+        assert text.splitlines()[0].startswith("$ "), f"{binary}.txt does not record its command"
+        assert "0 added, 0 changed, 0 destroyed" in text
+
+    # Policy coverage: linted or named, with nothing in between.
+    assert "either linted or named" in joined, (
+        "the policy claim has been widened back to 'every policy', which was false while the "
+        "suite read one plan and modules/events was never linted"
+    )
+
+    # The lock refuses; it does not block.
+    assert "is refused by a lock and exits" in joined
+    assert "blocks on a lock" not in joined, (
+        "this repository's own statelock transcript shows a second apply exiting 1 immediately "
+        "rather than waiting, so 'blocks' was contradicted by evidence already committed"
     )

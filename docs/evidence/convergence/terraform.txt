@@ -1,0 +1,8 @@
+$ terraform apply -auto-approve -no-color -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-converge-terraform
+$ terraform apply -auto-approve -no-color -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-converge-terraform
+# the same command twice. The second one is the claim.
+
+terraform version: 1.16.0
+
+first  run: Apply complete! Resources: 2 added, 0 changed, 0 destroyed.
+second run: Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
