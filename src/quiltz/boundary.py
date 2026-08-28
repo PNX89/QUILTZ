@@ -78,11 +78,20 @@ NOT_REPRODUCED: tuple[Limit, ...] = (
         ),
     ),
     Limit(
-        name="S3 consistency behaviour",
-        what_the_emulator_does="answers reads from local state immediately",
+        name="S3 consistency",
+        what_the_emulator_does=(
+            "answer every read from local state at once, including a read of a bucket "
+            "configuration that was changed a moment earlier"
+        ),
         what_it_therefore_cannot_tell_you=(
-            "anything about ordering or visibility between concurrent writers, which is the only "
-            "reason S3 consistency is ever interesting"
+            "that the sequence in this repository has a race at AWS. Object reads are not the "
+            "issue and have not been since 2020: S3 is strongly read-after-write consistent for "
+            "PUT and DELETE in every region. BUCKET CONFIGURATION is not, and AWS says so in the "
+            "same document, recommending a wait of about fifteen minutes after enabling "
+            "versioning before issuing writes. modules/storage enables versioning and the "
+            "playbook puts objects into that bucket seconds later, which the emulator will "
+            "never once complain about. Nor can it show two writers to one key, where AWS is "
+            "last-writer-wins with no object locking and no predictable order"
         ),
     ),
     Limit(
