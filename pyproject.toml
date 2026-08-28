@@ -57,7 +57,15 @@ markers = [
     "emulator: needs moto_server. Run with -m emulator.",
     "container: needs a Docker runtime, because moto runs Lambda handlers in one. Run with -m container.",
 ]
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # parliament 1.6.4 imports pkg_resources and carries several invalid escape sequences in
+    # its own source. Both are its problem and neither is reachable from this repository's
+    # code, so they are silenced NARROWLY, by module, rather than by relaxing the error rule
+    # for everything. The setuptools pin in the dev group is the other half of the same issue.
+    "ignore:pkg_resources is deprecated:UserWarning:parliament",
+    "ignore::SyntaxWarning:parliament",
+]
 
 [tool.ruff]
 line-length = 100
@@ -69,3 +77,10 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
 [tool.mypy]
 files = ["src", "tests"]
 strict = true
+
+# parliament ships no type information. The override is scoped to that one module rather than
+# relaxing anything globally, so everything this repository writes is still checked strictly and
+# only the untyped third party is exempt.
+[[tool.mypy.overrides]]
+module = ["parliament", "parliament.*"]
+ignore_missing_imports = true
