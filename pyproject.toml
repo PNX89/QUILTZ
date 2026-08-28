@@ -89,5 +89,5 @@ strict = true
 # relaxing anything globally, so everything this repository writes is still checked strictly and
 # only the untyped third party is exempt.
 [[tool.mypy.overrides]]
-module = ["parliament", "parliament.*"]
+module = ["parliament", "parliament.*", "boto3", "boto3.*", "botocore.*"]
 ignore_missing_imports = true
