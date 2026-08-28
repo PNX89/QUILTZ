@@ -37,6 +37,11 @@ htmlcov/
 collections/
 
 # Terraform and OpenTofu
+# .build holds the zip the archive_file data source writes. It is a build output that Terraform
+# regenerates deterministically from lambda/handler.py on every plan, and it was tracked here
+# only because an apply happened to run before a git add. A committed binary nobody regenerates
+# is the same defect as a committed plan nobody regenerates.
+modules/*/.build/
 .terraform/
 .terraform.lock.hcl.bak
 *.tfstate
