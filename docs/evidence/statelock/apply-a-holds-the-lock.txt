@@ -1,0 +1,27 @@
+null_resource.slow: Refreshing state... [id=2815975466753960541]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+-/+ destroy and then create replacement
+
+Terraform will perform the following actions:
+
+  # null_resource.slow must be replaced
+-/+ resource "null_resource" "slow" {
+      ~ id       = "2815975466753960541" -> (known after apply)
+      + triggers = { # forces replacement
+          + "tag" = "one"
+        }
+    }
+
+Plan: 1 to add, 0 to change, 1 to destroy.
+null_resource.slow: Destroying... [id=2815975466753960541]
+null_resource.slow: Destruction complete after 0s
+null_resource.slow: Creating...
+null_resource.slow: Provisioning with 'local-exec'...
+null_resource.slow (local-exec): Executing: ["/bin/sh" "-c" "sleep 25"]
+null_resource.slow: Still creating... [00m10s elapsed]
+null_resource.slow: Still creating... [00m20s elapsed]
+null_resource.slow: Creation complete after 25s [id=744984467929544743]
+
+Apply complete! Resources: 1 added, 0 changed, 1 destroyed.
