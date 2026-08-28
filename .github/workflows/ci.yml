@@ -4,7 +4,7 @@ name: CI
 # applied to an emulator, and the two binaries under test are single static files fetched from
 # their publishers at pinned versions.
 #
-# THREE JOBS, AND THE SPLIT IS THE POINT. This repository's first sentence is that an emulator
+# FOUR JOBS, AND THE SPLIT IS THE POINT. This repository's first sentence is that an emulator
 # result is worth something only when its boundary is stated, so the boundary of its own test
 # rig is drawn here rather than blurred:
 #
@@ -56,3 +56,90 @@ jobs:
         env:
           KUBECONFIG: /nonexistent
         run: uv run pytest -m helm
+
+  # The modules applied to moto_server under BOTH binaries, and the committed plans regenerated
+  # and compared against what is in the tree. A plan file that nothing regenerates is a claim
+  # about the past that quietly stops being true, so this job is what makes docs/evidence/plans
+  # evidence rather than decoration.
+  emulator:
+    name: both binaries against the emulator, and the committed plans
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.0
+          # The wrapper reformats stdout, and this job reads `terraform show -json`.
+          terraform_wrapper: false
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.12.6
+          tofu_wrapper: false
+      - run: uv sync --dev
+      - name: fetch the collection, which is GPL and therefore never vendored
+        run: uv run scripts/fetch_tools.sh
+      - name: start the emulator
+        run: |
+          uv run python -m moto.server -p 5599 --host 0.0.0.0 &
+          for _ in $(seq 1 30); do
+            curl -fsS --max-time 2 http://127.0.0.1:5599 >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          echo "the emulator never came up" >&2
+          exit 1
+      - name: provision the bucket, because the playbook only configures one
+        working-directory: modules/storage
+        run: |
+          terraform init -input=false -no-color
+          terraform apply -auto-approve -input=false -no-color \
+            -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-evidence
+      - name: regenerate every committed plan
+        run: scripts/regenerate_plans.sh http://127.0.0.1:5599
+      - name: fail if a committed plan no longer matches the configuration
+        run: python3 scripts/check_plan_drift.py
+      - name: the emulator suite
+        run: uv run pytest -m emulator
+
+  # The ONE leg that needs a Docker runtime. moto executes Lambda handlers in a container, so
+  # the end-to-end queue-to-topic path cannot be container-free and this repository says so
+  # rather than rounding it off. Five of six legs need no runtime; this one does.
+  container:
+    name: the queue-to-topic path, which does need a runtime
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.0
+          terraform_wrapper: false
+      - run: uv sync --dev
+      - name: start the emulator on every interface
+        run: |
+          uv run python -m moto.server -p 5599 --host 0.0.0.0 &
+          for _ in $(seq 1 30); do
+            curl -fsS --max-time 2 http://127.0.0.1:5599 >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          echo "the emulator never came up" >&2
+          exit 1
+      - name: apply the module with the two addresses the emulator answers on
+        working-directory: modules/events
+        run: |
+          # The handler reaches the emulator by a DIFFERENT string from the one Terraform uses,
+          # because it runs inside a container where 127.0.0.1 is the container itself. On
+          # Docker Desktop that is host.docker.internal; on a Linux runner it is the bridge
+          # gateway, which is read here rather than hardcoded as 172.17.0.1.
+          GATEWAY=$(docker network inspect bridge --format '{{ (index .IPAM.Config 0).Gateway }}')
+          echo "the bridge gateway is $GATEWAY"
+          terraform init -input=false -no-color
+          terraform apply -auto-approve -input=false -no-color \
+            -var endpoint=http://127.0.0.1:5599 \
+            -var "endpoint_from_lambda=http://$GATEWAY:5599"
+      - name: the container suite
+        run: uv run pytest -m container

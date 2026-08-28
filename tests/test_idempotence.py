@@ -96,22 +96,82 @@ def test_the_boundary_decision_names_what_it_rejected_and_why() -> None:
 
 @pytest.mark.emulator
 def test_the_playbook_is_idempotent_against_a_live_emulator() -> None:
-    """Needs moto_server and the amazon.aws collection. Re-derives both transcripts."""
+    """Re-derives BOTH transcripts against moto rather than reading them.
+
+    Two things had to be fixed here before it could do that, and both are worth naming.
+
+    The environment handed to the subprocess was `PATH=/usr/bin:/bin`, which was the right
+    instinct, a declared environment rather than whatever the shell happened to be carrying,
+    and wrong in fact: `ansible-playbook` lives in the project's virtual environment and
+    nowhere near /usr/bin. `subprocess` resolves the executable against the PATH it is GIVEN,
+    so the test failed with FileNotFoundError before it ever reached the emulator. It had
+    therefore never passed. The environment is still declared; it now declares the right one.
+
+    The test also asserted only that both runs exited zero, which an empty playbook does too.
+    That is exactly the hole `test_the_first_run_changes_things` exists to close for the
+    offline half, so the emulator half was the weaker of the two while claiming to be the
+    stronger. It now clears the two objects first, so the first pass has real work, and asserts
+    that it changed both of them before asking check mode for zero.
+    """
     import subprocess
+    import sys
+
+    import boto3
 
     collections = REPO / "collections"
-    assert collections.exists(), "the amazon.aws collection is not fetched; see scripts/"
+    assert collections.exists(), (
+        "the amazon.aws collection is not fetched. Run scripts/fetch_tools.sh"
+    )
+
+    endpoint = "http://127.0.0.1:5599"
+    bucket = "quiltz-evidence"
+
+    # A known starting state. Without this the first pass reports zero changed whenever the
+    # objects survive from an earlier run, and the assertion below would have to be dropped,
+    # which is how the emulator half lost its teeth in the first place.
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        region_name="eu-west-1",
+        aws_access_key_id="moto-demo",
+        aws_secret_access_key="moto-demo",
+    )
+    try:
+        for key in ("MANIFEST.txt", "RETENTION.txt"):
+            s3.delete_object(Bucket=bucket, Key=key)
+    except s3.exceptions.NoSuchBucket:
+        pytest.fail(
+            f"there is no {bucket} bucket on the emulator. Terraform provisions it and this "
+            f"playbook configures it, in that order, which is the boundary docs/adr/0002 "
+            f"argues for. Apply modules/storage first:\n"
+            f"  cd modules/storage && terraform init && terraform apply -auto-approve "
+            f"-var endpoint={endpoint} -var bucket_name={bucket}"
+        )
+
+    venv_bin = pathlib.Path(sys.executable).parent
     env = {
-        "PATH": "/usr/bin:/bin",
+        "PATH": f"{venv_bin}:/usr/bin:/bin",
         "ANSIBLE_COLLECTIONS_PATH": str(collections),
-        "QUILTZ_ENDPOINT": "http://127.0.0.1:5599",
-        "QUILTZ_BUCKET": "quiltz-evidence",
+        # amazon.aws needs boto3, so the modules must run under THIS interpreter rather than
+        # whatever /usr/bin/python3 happens to be on the machine.
+        "ANSIBLE_PYTHON_INTERPRETER": sys.executable,
+        "QUILTZ_ENDPOINT": endpoint,
+        "QUILTZ_BUCKET": bucket,
+        "HOME": str(pathlib.Path.home()),
     }
     playbook = str(REPO / "playbooks" / "configure_evidence_bucket.yml")
+
     first = subprocess.run(
         ["ansible-playbook", playbook], capture_output=True, text=True, env=env, timeout=300
     )
     assert first.returncode == 0, first.stdout + first.stderr
+    found = RECAP.search(first.stdout)
+    assert found, f"no play recap in the first run: {first.stdout[-400:]}"
+    assert int(found.group(2)) == 2, (
+        f"the first pass changed {found.group(2)} things against an emptied bucket. It must "
+        f"change both objects, or check mode reporting zero afterwards proves nothing."
+    )
+
     second = subprocess.run(
         ["ansible-playbook", "--check", playbook],
         capture_output=True,
