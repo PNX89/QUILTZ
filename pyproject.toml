@@ -43,6 +43,10 @@ dev = [
     "boto3>=1.35",
     "pyyaml>=6",
     "types-PyYAML>=6",
+    # ansible-core is GPL-3.0-or-later. It is a DEV dependency and is invoked as a command,
+    # never imported, so nothing GPL is distributed with this MIT package and no source of it
+    # is vendored into the tree. The playbook itself is YAML data, not a derivative work.
+    "ansible-core>=2.18",
 ]
 
 [tool.hatch.build.targets.wheel]

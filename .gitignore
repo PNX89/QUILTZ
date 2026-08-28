@@ -31,6 +31,11 @@ htmlcov/
 .Spotlight-V100
 .Trashes
 
+# Ansible collections, fetched by scripts/fetch_tools.sh from Galaxy. Vendored dependencies are
+# never tracked here: check_repo.sh G13 fails on any of them, after node_modules was committed
+# to another repository in this toolset by a git add -A.
+collections/
+
 # Terraform and OpenTofu
 .terraform/
 .terraform.lock.hcl.bak
