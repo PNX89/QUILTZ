@@ -11,7 +11,13 @@ from __future__ import annotations
 from quiltz.boundary import NOT_REPRODUCED, PROVED, Limit
 
 
-def test_the_four_limits_the_specification_named_are_all_here() -> None:
+def test_every_limit_that_has_been_found_is_here_and_the_count_is_asserted() -> None:
+    """Four, and the count is asserted so a fifth has to be added on purpose.
+
+    All four came from the specification. A fifth was added on 28-8-2026 and removed the same
+    day: see the module docstring. Asserting the count is what made both the addition and the
+    removal deliberate rather than quiet edits, which is the whole reason the number is here.
+    """
     names = {limit.name for limit in NOT_REPRODUCED}
     assert names == {
         "IAM policy evaluation",
@@ -19,6 +25,12 @@ def test_the_four_limits_the_specification_named_are_all_here() -> None:
         "request cost",
         "service quotas",
     }
+    assert len(NOT_REPRODUCED) == 4
+    assert "event source polling" not in names, (
+        "this was added as a fifth limit on 28-8-2026 and removed the same day, because it was "
+        "false: moto does poll, and the handler had been failing to reach the emulator from "
+        "inside its container. See the module docstring. Do not add it back without measuring."
+    )
 
 
 def test_every_limit_says_what_it_costs_the_reader_and_not_only_what_is_missing() -> None:
