@@ -1,0 +1,8 @@
+$ tofu apply -auto-approve -no-color -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-converge-tofu
+$ tofu apply -auto-approve -no-color -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-converge-tofu
+# the same command twice. The second one is the claim.
+
+tofu version: 1.12.6
+
+first  run: Apply complete! Resources: 2 added, 0 changed, 0 destroyed.
+second run: Apply complete! Resources: 0 added, 0 changed, 0 destroyed.

@@ -5,9 +5,20 @@ emulator result is worth something only when its boundary is stated, and a bound
 in prose gets copied, drifts, and ends up saying different things in the README, the ADR and
 the tests.
 
-So it is declared once here. The README's first screenful renders from it, the architecture
-decision record renders from it, and a test asserts all three agree. Adding a fifth limitation
-means editing one list and watching two documents fail until they are regenerated.
+So it is declared once here, and every consumer reads this list rather than restating it.
+
+THAT PARAGRAPH USED TO CLAIM MORE, AND IT WAS CORRECTED ON 28-8-2026. It said the README's first
+screenful renders from this list, that the ADR renders from it, and that a test asserts all three
+agree. None of the three was true. The README did not exist yet, nothing rendered from anything,
+and no such test had been written. A file whose entire subject is the gap between what is claimed
+and what is established had a paragraph of its own on the wrong side of that gap, which is the
+most expensive kind of error this repository can make.
+
+What is true today: the list is declared here, `tests/test_boundary.py` pins the names and the
+count so nothing is added or renamed quietly, and each entry that could be measured cites the
+transcript that measured it. When the README is written its boundary table must be generated
+from this list rather than typed beside it, and the test that asserts they agree belongs in the
+same commit as the generator.
 
 Each is a thing moto does not do rather than a thing it does badly. That distinction matters:
 "slower than AWS" is a performance note, while "does not evaluate IAM policies" means a test can
@@ -119,11 +130,29 @@ NOT_REPRODUCED: tuple[Limit, ...] = (
 # What the emulator DOES establish, stated beside the above rather than under it, because a
 # boundary printed alone reads as an apology and a boundary printed in two columns reads as a
 # measurement.
+# EVERY SENTENCE HERE WAS NARROWED ON 28-8-2026, BECAUSE THREE OF THE FIVE CLAIMED MORE THAN
+# ANYTHING ESTABLISHED. This is the column a reader is most likely to take at face value, so it
+# is the one that had to be checked hardest, and it had never been checked at all: the only test
+# guarding it asserted a length.
+#
+#   "converges, under two independent binaries" was a word rather than a measurement. OpenTofu
+#   planned and never applied anything anywhere in the repository, and nothing asserted that a
+#   repeat apply changes nothing under either binary. Both are now applied twice, and the second
+#   run is required to report nothing to do: scripts/prove_convergence.sh.
+#
+#   "every IAM policy document the modules create" covered three of the four the modules write.
+#   The suite read one plan and modules/events was never linted at all.
+#
+#   "blocks on a lock" is contradicted by this repository's own transcript. A second apply is
+#   refused and exits 1 immediately. It does not block, and the difference matters to anybody
+#   deciding whether a CI pipeline can safely run two applies at once.
 PROVED: tuple[str, ...] = (
-    "the configuration parses, plans and converges, under two independent binaries",
+    "the configuration parses and plans under two independent binaries, and applying it twice "
+    "under each of them leaves nothing to do the second time",
     "the same configuration produces the same plan under Terraform and under OpenTofu",
-    "every IAM policy document the modules create is syntactically valid and passes an "
-    "offline linter",
-    "a second concurrent apply blocks on a lock rather than corrupting shared state",
+    "every IAM policy document the modules write is either linted or named as one a plan "
+    "cannot show, with nothing falling between the two",
+    "a second concurrent apply is refused by a lock and exits, rather than waiting or "
+    "corrupting shared state",
     "a Helm chart renders and lints without any cluster existing",
 )
