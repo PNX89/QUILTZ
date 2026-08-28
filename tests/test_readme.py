@@ -15,10 +15,7 @@ from __future__ import annotations
 
 import pathlib
 import re
-import subprocess
 import sys
-
-import pytest
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 README = REPO / "README.md"
@@ -191,19 +188,17 @@ def test_the_readme_does_not_call_terraform_open_source() -> None:
         assert "MPL" in text, "the README names one licence of the pair and not the other"
 
 
-@pytest.mark.helm
 def test_the_generator_is_idempotent() -> None:
-    """Marked so it runs somewhere a write is safe: it rewrites the README and compares.
+    """Generating twice gives the same block, so a diff always means something changed.
 
-    A generator that changes its own output on a second run makes every diff meaningless.
+    This was marked `helm` at first, with the reasoning that it needed somewhere a write was
+    safe. That was a misuse of the marker, which means "needs the helm binary" and nothing else:
+    a suite whose markers describe when a test is convenient rather than what it requires stops
+    being a description of the test rig. Nothing here needs helm, so nothing here is marked.
+
+    The function is compared with itself rather than the file being rewritten, which is the
+    same check without touching the working tree at all.
     """
-    before = readme()
-    for _ in range(2):
-        result = subprocess.run(
-            [sys.executable, str(REPO / "scripts" / "readme_block.py"), "--write"],
-            capture_output=True,
-            text=True,
-            cwd=REPO,
-        )
-        assert result.returncode == 0, result.stderr
-    assert readme() == before, "the generator is not idempotent"
+    from readme_block import block
+
+    assert block() == block()
