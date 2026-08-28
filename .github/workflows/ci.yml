@@ -76,7 +76,7 @@ jobs:
           terraform_version: 1.16.0
           # The wrapper reformats stdout, and this job reads `terraform show -json`.
           terraform_wrapper: false
-      - uses: opentofu/setup-opentofu@v1
+      - uses: opentofu/setup-opentofu@v2
         with:
           tofu_version: 1.12.6
           tofu_wrapper: false
