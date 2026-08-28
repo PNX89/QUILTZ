@@ -1,0 +1,48 @@
+# The configuration half of what modules/storage does the provisioning half of.
+#
+# The boundary is deliberate and is argued in docs/adr/0002. Terraform decides that the bucket
+# EXISTS and what shape it has; this playbook decides what is IN it. Those are different
+# lifecycle stages and giving both to one tool is how a plan starts showing diffs for things
+# nobody asked it to manage.
+#
+# The proof that it is idempotent is a second pass in check mode asserting zero changed. A
+# playbook that reports changed on every run is one nobody can safely re-run, and re-running is
+# the only reason to have written it in Ansible rather than a shell script.
+---
+- name: Configure the evidence bucket that Terraform provisioned
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    endpoint: "{{ lookup('env', 'QUILTZ_ENDPOINT') | default('http://127.0.0.1:5599', true) }}"
+    bucket: "{{ lookup('env', 'QUILTZ_BUCKET') | default('quiltz-evidence', true) }}"
+
+  environment:
+    AWS_ACCESS_KEY_ID: moto-demo
+    AWS_SECRET_ACCESS_KEY: moto-demo
+    AWS_DEFAULT_REGION: eu-west-1
+
+  tasks:
+    - name: Put the manifest that says what this bucket is for
+      amazon.aws.s3_object:
+        endpoint_url: "{{ endpoint }}"
+        bucket: "{{ bucket }}"
+        object: MANIFEST.txt
+        mode: put
+        content: |
+          This bucket holds the evidence QUILTZ collects.
+          Provisioned by Terraform, contents managed by Ansible.
+          The boundary between those two sentences is the subject of docs/adr/0002.
+        overwrite: different
+
+    - name: Put the retention note beside it
+      amazon.aws.s3_object:
+        endpoint_url: "{{ endpoint }}"
+        bucket: "{{ bucket }}"
+        object: RETENTION.txt
+        mode: put
+        content: |
+          Nothing here is deleted by this playbook.
+          Lifecycle belongs to the module that owns the bucket, not to the tool that fills it.
+        overwrite: different
