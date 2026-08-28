@@ -1,15 +1,22 @@
-Acquiring state lock. This may take a few moments...
+$ terraform apply -auto-approve -no-color -var tag=two -var seconds=20
+# run while the apply in apply-a-holds-the-lock.txt was still holding the lock
+# exit code: 1
+#
+# The workspace already exists at this point, deliberately. Into a FRESH pg backend the
+# refusal reads 'Already locked for workspace creation: default' instead, which is a
+# different path and not what is meant by two engineers applying at once.
+
 
 Error: Error acquiring the state lock
 
 Error message: Workspace is already locked: default
 Lock Info:
-  ID:        8f051b67-b62a-d479-c7bd-afaa1ff81f02
+  ID:        3c5e408b-63af-e8ba-8a7d-ea55f2c3f764
   Path:      
   Operation: OperationTypeApply
   Who:       workhorse@Quelins-Mini
   Version:   1.16.0
-  Created:   2026-08-28 07:35:21.762703 +0000 UTC
+  Created:   2026-08-28 09:20:37.182605 +0000 UTC
   Info:      
 
 

@@ -1,4 +1,13 @@
-null_resource.slow: Refreshing state... [id=744984467929544743]
+$ terraform apply -auto-approve -no-color -var tag=three -var seconds=20 &
+$ sleep 8 && kill -9 <that pid>
+$ terraform apply -auto-approve -no-color -var tag=four -var seconds=5
+
+granted advisory locks WHILE the doomed apply held one: 1
+granted advisory locks AFTER SIGKILL:                   0
+exit code of the fresh apply that followed:             0
+
+--- output of the apply that was killed, up to the point it died ---
+null_resource.slow: Refreshing state... [id=5894264779808126271]
 
 Terraform used the selected providers to generate the following execution
 plan. Resource actions are indicated with the following symbols:
@@ -8,20 +17,47 @@ Terraform will perform the following actions:
 
   # null_resource.slow must be replaced
 -/+ resource "null_resource" "slow" {
-      ~ id       = "744984467929544743" -> (known after apply)
+      ~ id       = "5894264779808126271" -> (known after apply)
       ~ triggers = { # forces replacement
-          ~ "tag" = "one" -> "four"
+          ~ "tag" = "realwork" -> "three"
         }
     }
 
 Plan: 1 to add, 0 to change, 1 to destroy.
-null_resource.slow: Destroying... [id=744984467929544743]
+null_resource.slow: Destroying... [id=5894264779808126271]
 null_resource.slow: Destruction complete after 0s
 null_resource.slow: Creating...
 null_resource.slow: Provisioning with 'local-exec'...
-null_resource.slow (local-exec): Executing: ["/bin/sh" "-c" "sleep 25"]
-null_resource.slow: Still creating... [00m10s elapsed]
-null_resource.slow: Still creating... [00m20s elapsed]
-null_resource.slow: Creation complete after 25s [id=3039934179601789854]
+null_resource.slow (local-exec): Executing: ["/bin/sh" "-c" "sleep 20"]
+
+--- the fresh apply, which was not refused ---
+null_resource.slow: Refreshing state... [id=5894264779808126271]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+-/+ destroy and then create replacement
+
+Terraform will perform the following actions:
+
+  # null_resource.slow must be replaced
+-/+ resource "null_resource" "slow" {
+      ~ id       = "5894264779808126271" -> (known after apply)
+      ~ triggers = { # forces replacement
+          ~ "tag" = "realwork" -> "four"
+        }
+    }
+
+Plan: 1 to add, 0 to change, 1 to destroy.
+null_resource.slow: Destroying... [id=5894264779808126271]
+null_resource.slow: Destruction complete after 0s
+null_resource.slow: Creating...
+null_resource.slow: Provisioning with 'local-exec'...
+null_resource.slow (local-exec): Executing: ["/bin/sh" "-c" "sleep 5"]
+null_resource.slow: Creation complete after 5s [id=6304674402163705223]
 
 Apply complete! Resources: 1 added, 0 changed, 1 destroyed.
+
+A PostgreSQL advisory lock is held on a session. SIGKILL gives terraform no chance to
+release anything, and the lock goes anyway because the connection goes. With state in S3
+and a DynamoDB lock table the killed process leaves a row behind and the next apply is
+refused until somebody force-unlocks it.

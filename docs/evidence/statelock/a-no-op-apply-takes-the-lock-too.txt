@@ -1,0 +1,49 @@
+$ terraform apply -auto-approve -no-color -var tag=settled -var seconds=1   # converge
+$ terraform apply -auto-approve -no-color -var tag=realwork -var seconds=20 &  # hold the lock
+$ terraform apply -auto-approve -no-color -var tag=settled -var seconds=1   # a NO-OP, during it
+
+granted advisory locks while the real-work apply held one: 1
+exit code of the NO-OP apply that arrived during it:       1
+
+--- the no-op apply, run while the lock was held ---
+
+Error: Error acquiring the state lock
+
+Error message: Workspace is already locked: default
+Lock Info:
+  ID:        fece3bb4-7bf2-031c-e075-1e1159e74e46
+  Path:      
+  Operation: OperationTypeApply
+  Who:       workhorse@Quelins-Mini
+  Version:   1.16.0
+  Created:   2026-08-28 09:20:56.982433 +0000 UTC
+  Info:      
+
+
+Terraform acquires a state lock to protect the state from being written
+by multiple users at the same time. Please resolve the issue above and try
+again. For most commands, you can disable locking with the "-lock=false"
+flag, but this is not recommended.
+
+$ terraform apply -auto-approve -no-color -var tag=realwork -var seconds=1   # a lone no-op
+$ psql -d quiltz_statelock -At -c "select count(*) from pg_locks where locktype='advisory' and granted;"  # every 50ms
+highest granted advisory lock count seen during that lone no-op apply: 1
+
+null_resource.slow: Refreshing state... [id=5894264779808126271]
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration
+and found no differences, so no changes are needed.
+
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
+
+So an apply with nothing to do DOES take the lock. It has to: the lock is acquired before
+the state is read, so terraform cannot yet know there is nothing to do.
+
+This corrects what this repository said until 28-8-2026, which was that a no-op apply
+takes no lock at all. That came from running two no-op applies at once, seeing both
+succeed, and sampling pg_locks at human speed and finding it empty. Both observations
+were real and the conclusion was wrong: a no-op apply holds the lock for a fraction of a
+second, so two of them usually miss each other and a coarse sample usually misses it.
+A near miss is not an absence, and an absence is not a mechanism.
