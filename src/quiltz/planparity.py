@@ -33,10 +33,57 @@ that way.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
-__all__ = ["TOOL_METADATA_PATHS", "Difference", "Exemption", "compare"]
+__all__ = [
+    "ORDER_INSENSITIVE",
+    "TOOL_METADATA_PATHS",
+    "Difference",
+    "Exemption",
+    "canonical",
+    "compare",
+]
+
+# Lists in a plan whose ELEMENT ORDER carries no meaning, so two plans that list the same things
+# in a different sequence agree.
+#
+# Found the hard way on 28-8-2026: the identity plan regenerated on a Linux runner listed the
+# same four relevant_attributes as the one committed from macOS, with two of them swapped. The
+# comparison walks lists positionally, so that read as four disagreements about infrastructure.
+#
+# The tempting fix was to exempt `relevant_attributes` in TOOL_METADATA_PATHS, which would have
+# stopped the failure and also stopped the check from ever noticing that the set of attributes
+# had changed. Sorting instead keeps every element under comparison and gives up only the
+# sequence, which is the thing that was never meaningful.
+ORDER_INSENSITIVE: dict[str, str] = {
+    ".relevant_attributes": (
+        "a set of attributes the plan depends on. Terraform emits it in an order that differs "
+        "between machines: the same four entries came back with two swapped on a Linux runner"
+    ),
+}
+
+
+def canonical(plan: Any) -> Any:
+    """A copy of the plan with order-insensitive lists sorted, so a reordering is not a diff.
+
+    Applied to both sides before comparing. Sorting is by the JSON text of each element, which
+    is stable and needs no knowledge of what the elements mean.
+    """
+
+    def walk(node: Any, path: str) -> Any:
+        if isinstance(node, dict):
+            return {key: walk(value, f"{path}.{key}") for key, value in node.items()}
+        if isinstance(node, list):
+            items = [walk(value, f"{path}[{index}]") for index, value in enumerate(node)]
+            if path in ORDER_INSENSITIVE:
+                return sorted(items, key=lambda item: json.dumps(item, sort_keys=True))
+            return items
+        return node
+
+    return walk(plan, "")
+
 
 # Paths that describe the tool rather than the infrastructure.
 #
@@ -168,5 +215,5 @@ def compare(first: dict[str, Any], second: dict[str, Any]) -> list[Difference]:
     comparison function that quietly skips things.
     """
     out: list[Difference] = []
-    _walk(first, second, "", out)
+    _walk(canonical(first), canonical(second), "", out)
     return out
