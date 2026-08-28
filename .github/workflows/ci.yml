@@ -100,6 +100,10 @@ jobs:
         run: scripts/regenerate_plans.sh http://127.0.0.1:5599
       - name: fail if a committed plan no longer matches the configuration
         run: python3 scripts/check_plan_drift.py
+      - name: re-derive the boundary transcript
+        run: uv run scripts/measure_boundary.py
+      - name: fail if the committed transcript no longer matches what was measured
+        run: git diff --exit-code -- docs/evidence/iam
       - name: the emulator suite
         run: uv run pytest -m emulator
 

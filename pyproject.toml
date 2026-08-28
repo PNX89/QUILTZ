@@ -82,7 +82,10 @@ src = ["src", "tests"]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.mypy]
-files = ["src", "tests"]
+# scripts is here too. It was not, and that meant the two scripts CI depends on were the only
+# unchecked Python in the repository, which is the wrong place to have a blind spot.
+files = ["src", "tests", "scripts"]
+mypy_path = ["scripts"]
 strict = true
 
 # parliament ships no type information. The override is scoped to that one module rather than
