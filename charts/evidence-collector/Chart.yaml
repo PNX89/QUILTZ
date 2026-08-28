@@ -1,0 +1,6 @@
+apiVersion: v2
+name: evidence-collector
+description: The job this repository's own modules provision, packaged so it can be deployed and rolled back.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

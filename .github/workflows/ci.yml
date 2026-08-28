@@ -9,6 +9,7 @@ name: CI
 # rig is drawn here rather than blurred:
 #
 #   checks      lint, types and the offline suite. No emulator, no container, no binaries.
+#   chart       helm lint and a golden-file render, with KUBECONFIG pointed at nothing.
 #   emulator    the modules applied to moto_server, under BOTH Terraform and OpenTofu.
 #   container   the one leg that needs a Docker runtime, because moto executes Lambda handlers
 #               inside a container. Five of this repository's six legs are container-free and
@@ -34,3 +35,24 @@ jobs:
       python-versions: '["3.11", "3.12", "3.13"]'
       sync-args: "--dev"
       run-mypy: true
+
+  # helm is a single static binary and no cluster is involved, so this could have lived in the
+  # offline job. It does not, because the offline job must run on a machine with nothing
+  # installed: that is what makes "it renders correctly without a cluster" checkable by a
+  # stranger who clones this and runs pytest.
+  chart:
+    name: the chart, with no cluster anywhere
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.21.4
+      - run: uv sync --dev
+      - name: lint and render with KUBECONFIG pointed at nothing
+        env:
+          KUBECONFIG: /nonexistent
+        run: uv run pytest -m helm
