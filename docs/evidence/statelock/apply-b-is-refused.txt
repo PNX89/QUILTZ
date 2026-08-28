@@ -1,0 +1,19 @@
+Acquiring state lock. This may take a few moments...
+
+Error: Error acquiring the state lock
+
+Error message: Workspace is already locked: default
+Lock Info:
+  ID:        8f051b67-b62a-d479-c7bd-afaa1ff81f02
+  Path:      
+  Operation: OperationTypeApply
+  Who:       workhorse@Quelins-Mini
+  Version:   1.16.0
+  Created:   2026-08-28 07:35:21.762703 +0000 UTC
+  Info:      
+
+
+Terraform acquires a state lock to protect the state from being written
+by multiple users at the same time. Please resolve the issue above and try
+again. For most commands, you can disable locking with the "-lock=false"
+flag, but this is not recommended.
