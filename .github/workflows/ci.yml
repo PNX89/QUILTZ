@@ -4,13 +4,15 @@ name: CI
 # applied to an emulator, and the two binaries under test are single static files fetched from
 # their publishers at pinned versions.
 #
-# FOUR JOBS, AND THE SPLIT IS THE POINT. This repository's first sentence is that an emulator
+# FIVE JOBS, AND THE SPLIT IS THE POINT. This repository's first sentence is that an emulator
 # result is worth something only when its boundary is stated, so the boundary of its own test
 # rig is drawn here rather than blurred:
 #
 #   checks      lint, types and the offline suite. No emulator, no container, no binaries.
 #   chart       helm lint and a golden-file render, with KUBECONFIG pointed at nothing.
 #   emulator    the modules applied to moto_server, under BOTH Terraform and OpenTofu.
+#   statelock   the pg backend against a real PostgreSQL, which is the one claim here that no
+#               emulator is involved in at all.
 #   container   the one leg that needs a Docker runtime, because moto executes Lambda handlers
 #               inside a container. Five of this repository's six legs are container-free and
 #               this one is not, and saying "container-free" without that qualifier would be
@@ -147,3 +149,41 @@ jobs:
             -var "endpoint_from_lambda=http://$GATEWAY:5599"
       - name: the container suite
         run: uv run pytest -m container
+
+  # The state lock is the only claim in this repository that involves no emulator. It needs a
+  # real PostgreSQL, so it gets a real one rather than a stand-in.
+  #
+  # The transcripts are regenerated here but NOT byte-compared: they carry lock ids, resource
+  # ids, pids and timestamps that differ every run. summary.json carries only the outcomes, and
+  # that is diffed. Without this job the five facts would be exactly what they were until
+  # 28-8-2026, hand-produced numbers nobody could reproduce, three of which turned out to have
+  # evidence that did not support them.
+  statelock:
+    name: the state lock, against a real PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: quiltz
+          POSTGRES_PASSWORD: quiltz
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.0
+          terraform_wrapper: false
+      - name: re-derive every state lock fact
+        run: |
+          scripts/measure_statelock.sh \
+            "postgres://quiltz:quiltz@127.0.0.1:5432/quiltz_statelock?sslmode=disable"
+      - name: fail if the outcomes have changed
+        run: git diff --exit-code -- docs/evidence/statelock/summary.json
