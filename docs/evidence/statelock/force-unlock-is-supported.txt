@@ -1,4 +1,14 @@
-[0m[1m[32mTerraform state has been successfully unlocked![0m[32m
+$ terraform force-unlock -force aa61fa98-8015-88f1-5326-f4b7e509f55f
+# The lock id was read out of a refusal while a real apply held it. That apply was then
+# SIGKILLed, so by the time force-unlock ran there was nothing left to unlock.
+# exit code: 0
+# granted advisory locks immediately before force-unlock ran: 0
+
+Terraform state has been successfully unlocked!
 
 The state has been unlocked, and Terraform commands should now be able to
-obtain a new lock on the remote state.[0m
+obtain a new lock on the remote state.
+
+The specification said force-unlock is unsupported on the pg backend. It is supported.
+What is true, and is the more useful half, is that it is never needed: the lock cannot
+go stale, so there is never a row to clear.

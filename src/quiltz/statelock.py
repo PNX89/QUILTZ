@@ -4,11 +4,36 @@ Every fact below was measured on 28-8-2026 against PostgreSQL 17.10 and Terrafor
 the transcripts are in `docs/evidence/statelock/`. Two of them contradict what this repository's
 own specification said, which is the reason they are written down as data rather than prose.
 
-THE TRAP, AND IT IS AN EASY ONE TO FALL INTO. An apply with nothing to do takes no lock at all.
-Running the same no-op apply twice concurrently therefore shows no conflict, no advisory lock in
-`pg_locks`, and both processes reporting success, from which the obvious and wrong conclusion is
-that the backend does not serialise anything. Both applies have to have real work before the
-question is even being asked. That is how this was measured wrongly the first time.
+THE TRAP, AND IT CAUGHT THIS FILE TWICE. Run the same no-op apply twice at once and you see no
+conflict, both processes reporting success, and nothing in `pg_locks`. The obvious conclusion is
+that the backend does not serialise anything. The next conclusion, which this file carried until
+28-8-2026, is that an apply with nothing to do takes no lock at all.
+
+Both are wrong, and the second is the more embarrassing because it was written down as a measured
+fact. A no-op apply DOES take the lock: hold the lock with a real apply and send a no-op at it,
+and the no-op is refused, exit 1, "Workspace is already locked". It cannot be otherwise, since
+the lock is acquired before the state is read and terraform does not yet know there is nothing to
+do. Sampled every fifty milliseconds a lone no-op apply shows one granted advisory lock.
+
+What is true is that a no-op holds it for a fraction of a second. Two of them usually miss each
+other, and a sample taken at human speed usually misses it too. A near miss is not an absence,
+and an absence is not a mechanism. The transcript is
+`a-no-op-apply-takes-the-lock-too.txt`.
+
+ALL FIVE WERE RE-DERIVED ON 28-8-2026 BY `scripts/measure_statelock.sh`, AND THREE OF THEM HAD
+EVIDENCE THAT DID NOT SUPPORT THEM. The originals were produced by hand in a scratch directory
+nobody could re-run. No transcript recorded its own invocation, which is the rule this repository
+had already learned from the Ansible ones, so `after-sigkill-a-fresh-apply-proceeds.txt` was an
+ordinary apply transcript with no kill in it and nothing to distinguish it from any other success.
+The `pg_locks` samples were quoted in prose and appeared in no file. The fifth fact cited the
+transcript belonging to a different experiment, because it had none of its own, and re-deriving it
+is what showed the fact itself was wrong.
+
+The harness is committed at `harness/statelock/` so the numbers can be produced again by somebody
+who is not the author. Three of its own bugs were caught by the transcripts printing their exit
+codes: a no-op pair launched at a tag that had been deliberately refused, so both had real work; a
+`kill -9` aimed at a subshell rather than at terraform, leaving the process alive; and a contention
+test run against a fresh database, which measures workspace creation and reports a different error.
 
 WHAT THE SPECIFICATION GOT WRONG. It said `force-unlock` is unsupported on the pg backend
 because the lock dies with the session. The first half is false: `terraform force-unlock -force`
@@ -45,8 +70,9 @@ MEASURED: tuple[Measurement, ...] = (
         answer="yes, a PostgreSQL advisory ExclusiveLock held for the whole operation",
         evidence="apply-a-holds-the-lock.txt",
         detail=(
-            "Sampled in pg_locks while the apply ran: locktype advisory, mode ExclusiveLock, "
-            "granted true, held by the backend session serving that client"
+            "Sampled in pg_locks while the apply ran, and the sample is in the transcript "
+            "rather than quoted here: locktype advisory, mode ExclusiveLock, granted t. One "
+            "granted advisory lock during the apply and zero after it"
         ),
     ),
     Measurement(
@@ -81,13 +107,14 @@ MEASURED: tuple[Measurement, ...] = (
     ),
     Measurement(
         question="Does an apply with NOTHING to do take a lock?",
-        answer="no, which is what makes a naive concurrency test useless",
-        evidence="apply-b-is-refused.txt",
+        answer="yes, briefly, which is what makes a naive concurrency test useless",
+        evidence="a-no-op-apply-takes-the-lock-too.txt",
         detail=(
-            "Two concurrent no-op applies both report 'Apply complete! Resources: 0 added, 0 "
-            "changed, 0 destroyed' and pg_locks stays empty throughout. Nothing is being "
-            "serialised because nothing is being written. Measured this way first, and the "
-            "conclusion it invites is the opposite of the truth"
+            "A no-op apply sent at a lock held by a real one is refused, exit 1, 'Workspace is "
+            "already locked'. Sampled every 50ms, a lone no-op apply shows one granted advisory "
+            "lock. It holds it for a fraction of a second, so two no-op applies usually miss "
+            "each other and a coarse sample sees nothing, which is what this file recorded as "
+            "'no lock at all' until it was checked against a lock that was definitely held"
         ),
     ),
 )

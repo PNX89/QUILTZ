@@ -1,4 +1,7 @@
-null_resource.slow: Refreshing state... [id=2815975466753960541]
+$ terraform apply -auto-approve -no-color -var tag=one -var seconds=20
+# with, concurrently, a sample of pg_locks and a second apply. See apply-b-is-refused.txt.
+
+null_resource.slow: Refreshing state... [id=4960909293029123988]
 
 Terraform used the selected providers to generate the following execution
 plan. Resource actions are indicated with the following symbols:
@@ -8,20 +11,30 @@ Terraform will perform the following actions:
 
   # null_resource.slow must be replaced
 -/+ resource "null_resource" "slow" {
-      ~ id       = "2815975466753960541" -> (known after apply)
-      + triggers = { # forces replacement
-          + "tag" = "one"
+      ~ id       = "4960909293029123988" -> (known after apply)
+      ~ triggers = { # forces replacement
+          ~ "tag" = "zero" -> "one"
         }
     }
 
 Plan: 1 to add, 0 to change, 1 to destroy.
-null_resource.slow: Destroying... [id=2815975466753960541]
+null_resource.slow: Destroying... [id=4960909293029123988]
 null_resource.slow: Destruction complete after 0s
 null_resource.slow: Creating...
 null_resource.slow: Provisioning with 'local-exec'...
-null_resource.slow (local-exec): Executing: ["/bin/sh" "-c" "sleep 25"]
+null_resource.slow (local-exec): Executing: ["/bin/sh" "-c" "sleep 20"]
 null_resource.slow: Still creating... [00m10s elapsed]
 null_resource.slow: Still creating... [00m20s elapsed]
-null_resource.slow: Creation complete after 25s [id=744984467929544743]
+null_resource.slow: Creation complete after 20s [id=3158109522820985419]
 
 Apply complete! Resources: 1 added, 0 changed, 1 destroyed.
+
+--- sampled in the state database while the apply above was still running ---
+$ psql <conn> -x -c "select locktype, mode, granted, pid from pg_locks where locktype='advisory';"
+-[ RECORD 1 ]-----------
+locktype | advisory
+mode     | ExclusiveLock
+granted  | t
+pid      | 34241
+granted advisory locks DURING the apply: 1
+granted advisory locks AFTER  the apply: 0
