@@ -13,7 +13,7 @@ import json
 import pathlib
 from typing import Any
 
-from quiltz.planparity import TOOL_METADATA_LEAVES, compare
+from quiltz.planparity import TOOL_METADATA_PATHS, compare
 
 PLANS = pathlib.Path(__file__).resolve().parents[1] / "docs" / "evidence" / "plans"
 
@@ -75,8 +75,8 @@ def test_no_exemption_is_stale() -> None:
     permission for that leaf to differ.
     """
     terraform, opentofu = plans()
-    exercised = {d.leaf for d in compare(terraform, opentofu) if d.is_tool_metadata}
-    stale = sorted(set(TOOL_METADATA_LEAVES) - exercised)
+    paths = [d.path for d in compare(terraform, opentofu)]
+    stale = sorted(e.leaf for e in TOOL_METADATA_PATHS if not any(e.covers(p) for p in paths))
     assert stale == [], (
         f"these exemptions forgive nothing in the current plans and should go: {stale}"
     )
@@ -84,5 +84,58 @@ def test_no_exemption_is_stale() -> None:
 
 def test_every_exemption_says_why_it_is_there() -> None:
     """An unexplained exemption is how an allowlist turns into a way of passing."""
-    for leaf, reason in TOOL_METADATA_LEAVES.items():
-        assert len(reason) > 20, f"{leaf} is exempt without a stated reason"
+    for exemption in TOOL_METADATA_PATHS:
+        assert len(exemption.reason) > 20, f"{exemption.leaf} is exempt without a stated reason"
+
+
+def test_a_changed_resource_type_is_not_forgiven() -> None:
+    """The regression test for the hole this allowlist had until 28-8-2026.
+
+    The exemptions were leaf names matched anywhere in the path. `type` is on the list to admit
+    the variable metadata OpenTofu emits, and as a bare name it also admitted
+    `.resource_changes[0].type`, which is the kind of resource the plan would create. Rewriting
+    one plan's bucket into a DynamoDB table produced sixteen differences and not one of them was
+    counted as real, while the module's first sentence promised that anything outside the
+    allowlist fails.
+
+    The count assertion in the first test would have caught this particular mutation, sixteen
+    against thirteen, but it would have reported it as an unexpected number of differences
+    rather than as two tools planning different infrastructure. That is a diagnostic pointing
+    away from the problem, and it only holds while the arithmetic happens to disagree.
+    """
+    terraform, opentofu = plans()
+    tampered = copy.deepcopy(opentofu)
+    for where in (
+        tampered["resource_changes"][0],
+        tampered["planned_values"]["root_module"]["resources"][0],
+        tampered["configuration"]["root_module"]["resources"][0],
+    ):
+        where["type"] = "aws_dynamodb_table"
+
+    real = [d for d in compare(terraform, tampered) if not d.is_tool_metadata]
+    assert real, "a changed resource type was forgiven, which is the hole this test exists for"
+    assert any(d.path.startswith(".resource_changes") and d.leaf == "type" for d in real), (
+        f"the resource type change was not among the differences counted: {[d.path for d in real]}"
+    )
+
+
+def test_no_exemption_travels_beyond_where_it_was_measured() -> None:
+    """Each pattern is anchored, so an exemption cannot follow its leaf name elsewhere.
+
+    Tested per entry rather than in aggregate: an exemption that quietly matched everything
+    would still let the suite above pass, because everything it forgave would simply never be
+    counted.
+    """
+    elsewhere = (
+        ".resource_changes[0].type",
+        ".planned_values.root_module.resources[0].type",
+        ".configuration.root_module.resources[0].type",
+        ".resource_changes[0].change.after.required",
+        ".prior_state.values.root_module.resources[0].values.complete",
+        ".configuration.root_module.resources[0].provider_name.applyable",
+    )
+    for exemption in TOOL_METADATA_PATHS:
+        for path in elsewhere:
+            assert not exemption.covers(path), (
+                f"exemption {exemption.leaf} forgives {path}, which is not where it was measured"
+            )
