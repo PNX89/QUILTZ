@@ -12,37 +12,88 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 from typing import Any
 
 import pytest
 
-from quiltz.policies import ATTRIBUTE_KINDS, Document, Kind, documents_in_plan, lint
-
-PLAN = (
-    pathlib.Path(__file__).resolve().parents[1]
-    / "docs"
-    / "evidence"
-    / "plans"
-    / "identity-terraform.json"
+from quiltz.policies import (
+    ATTRIBUTE_KINDS,
+    Document,
+    Kind,
+    documents_in_plan,
+    lint,
+    unknown_in_plan,
 )
+
+PLANS = pathlib.Path(__file__).resolve().parents[1] / "docs" / "evidence" / "plans"
+
+# Both plans that contain policies. Reading only the identity one, which is what this suite did
+# until 28-8-2026, left the two documents in modules/events unlinted while the PROVED column
+# said every policy the modules create is linted.
+WITH_POLICIES = ("identity-terraform.json", "events-terraform.json")
+
+PLAN = PLANS / "identity-terraform.json"
 
 
 def plan() -> dict[str, Any]:
     return dict(json.loads(PLAN.read_text()))
 
 
-def test_the_modules_produce_the_two_documents_this_suite_expects() -> None:
-    """If a module gains a policy, this fails until somebody looks at it."""
-    documents = documents_in_plan(plan())
-    assert {d.origin for d in documents} == {
+def every_plan() -> list[dict[str, Any]]:
+    return [dict(json.loads((PLANS / name).read_text())) for name in WITH_POLICIES]
+
+
+def test_the_modules_produce_the_documents_this_suite_expects() -> None:
+    """If a module gains a policy, this fails until somebody looks at it.
+
+    Across BOTH plans. The set is spelled out rather than counted, because a count would go on
+    passing if one document were swapped for another.
+    """
+    found = {d.origin for p in every_plan() for d in documents_in_plan(p)}
+    assert found == {
         "aws_iam_policy.read_one_bucket.policy",
         "aws_iam_role.reader.assume_role_policy",
+        "aws_iam_role.consumer.assume_role_policy",
     }
-    assert {d.kind for d in documents} == {Kind.IDENTITY, Kind.TRUST}
+    kinds = {d.kind for p in every_plan() for d in documents_in_plan(p)}
+    assert kinds == {Kind.IDENTITY, Kind.TRUST}
+
+
+def test_the_documents_a_plan_cannot_show_are_named_rather_than_skipped() -> None:
+    """The limit of linting at plan time, stated as data.
+
+    `aws_iam_policy.consume_and_announce.policy` interpolates the ARNs of a queue and a topic
+    that do not exist yet, so Terraform reports the whole attribute as unknown and there is no
+    body to lint. Before this was named, `documents_in_plan` simply found nothing there and the
+    document was counted as neither linted nor unlintable: it was invisible.
+    """
+    unknown = sorted(u for p in every_plan() for u in unknown_in_plan(p))
+    assert unknown == ["aws_iam_policy.consume_and_announce.policy"]
+
+
+def test_every_policy_the_modules_write_is_either_linted_or_named_as_unreadable() -> None:
+    """Nothing falls between the two. This is the assertion the PROVED claim rests on.
+
+    Counted from the configuration blocks rather than from the two functions, so this cannot
+    pass by both of them agreeing to miss the same document.
+    """
+    written = {
+        f"{resource['address']}.{attribute}"
+        for p in every_plan()
+        for resource in p["configuration"]["root_module"]["resources"]
+        for attribute in ATTRIBUTE_KINDS
+        if attribute in resource.get("expressions", {})
+    }
+    accounted = {d.origin for p in every_plan() for d in documents_in_plan(p)} | {
+        u for p in every_plan() for u in unknown_in_plan(p)
+    }
+    assert written == accounted, f"unaccounted for: {sorted(written ^ accounted)}"
+    assert len(written) == 4
 
 
 def test_every_policy_the_modules_create_is_clean() -> None:
-    """The claim, over the real plan rather than over a fixture."""
+    """The claim, over the real plans rather than over a fixture."""
     offending = [f for document in documents_in_plan(plan()) for f in lint(document)]
     assert offending == [], "\n".join(f"{f.origin}: {f.issue} {f.detail}" for f in offending)
 
@@ -179,3 +230,146 @@ def test_an_unrecognised_document_kind_raises() -> None:
             lint(document)
     finally:
         del ATTRIBUTE_KINDS["some_future_policy_attribute"]
+
+
+@pytest.mark.parametrize(
+    "principal",
+    [
+        pytest.param("*", id="bare-string"),
+        pytest.param(["*"], id="bare-list"),
+        pytest.param({"AWS": "*"}, id="scalar-under-a-key"),
+        pytest.param({"AWS": ["*"]}, id="list-under-a-key"),
+        pytest.param({"AWS": ["arn:aws:iam::111111111111:root", "*"]}, id="one-of-several"),
+        pytest.param({"Service": "lambda.amazonaws.com", "AWS": ["*"]}, id="beside-a-service"),
+    ],
+)
+def test_every_spelling_of_a_wildcard_principal_is_caught(principal: object) -> None:
+    """Each shape separately, because the suite used to test two and cover one branch.
+
+    Until 28-8-2026 the check read `"*" in principal.values()`, comparing the dict's values with
+    the string "*". It caught {"AWS": "*"} and missed {"AWS": ["*"]}. That is not an exotic
+    shape: the aws provider emits the scalar form for a principals block with one identifier and
+    a JSON array the moment it has two, so adding a second principal to modules/identity would
+    have disarmed the only check for a role the whole internet can assume, with the suite green.
+
+    The parametrize looked like it explored the shape space. It tested two spellings of one
+    branch.
+    """
+    document = Document(
+        address="aws_iam_role.example",
+        attribute="assume_role_policy",
+        body={
+            "Version": "2012-10-17",
+            "Statement": [{"Effect": "Allow", "Principal": principal, "Action": "sts:AssumeRole"}],
+        },
+    )
+    assert "TRUST_PRINCIPAL_STAR" in [f.issue for f in lint(document)]
+
+
+def test_a_principal_shape_the_check_does_not_understand_raises() -> None:
+    """Rather than being read as "no wildcard here" and reported clean.
+
+    A guard that quietly accepts what it cannot parse reports clean for documents it never
+    examined, and that is the whole failure this module is written against.
+    """
+    document = Document(
+        address="aws_iam_role.example",
+        attribute="assume_role_policy",
+        body={
+            "Version": "2012-10-17",
+            "Statement": [
+                {"Effect": "Allow", "Principal": {"AWS": 42}, "Action": "sts:AssumeRole"}
+            ],
+        },
+    )
+    with pytest.raises(TypeError, match="shape this check has not been taught"):
+        lint(document)
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        "sts:AssumeRole",
+        "sts:AssumeRoleWithSAML",
+        "sts:AssumeRoleWithWebIdentity",
+        "sts:SetSourceIdentity",
+        "sts:TagSession",
+    ],
+)
+def test_no_legitimate_assume_action_is_reported_as_a_finding(action: str) -> None:
+    """The other direction, which is the one that puts false findings into committed evidence.
+
+    sts:AssumeRoleWithSAML and sts:SetSourceIdentity were both missing from the allowed set, so
+    a perfectly ordinary SAML federation trust policy was reported as granting something other
+    than assuming the role. A linter that cries wolf on correct configuration is worse than
+    absent, because the next real finding is read as noise.
+
+    One case per action, so a missing entry names itself instead of failing a bundle.
+    """
+    document = Document(
+        address="aws_iam_role.example",
+        attribute="assume_role_policy",
+        body={
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"Service": "lambda.amazonaws.com"},
+                    "Action": action,
+                }
+            ],
+        },
+    )
+    assert [f.issue for f in lint(document)] == []
+
+
+def test_an_action_outside_the_family_is_still_reported() -> None:
+    """Widening the allowed set must not have widened it to everything."""
+    document = Document(
+        address="aws_iam_role.example",
+        attribute="assume_role_policy",
+        body={
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"Service": "lambda.amazonaws.com"},
+                    "Action": "s3:GetObject",
+                }
+            ],
+        },
+    )
+    assert "TRUST_UNEXPECTED_ACTION" in [f.issue for f in lint(document)]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param({"Version": "2012-10-17", "Statement": []}, id="empty-list"),
+        pytest.param({"Version": "2012-10-17"}, id="no-statement-key"),
+    ],
+)
+def test_a_document_with_no_statements_is_not_called_clean(body: dict[str, Any]) -> None:
+    """It used to return no findings, which is an empty list for a document nobody examined."""
+    document = Document(address="aws_iam_role.example", attribute="assume_role_policy", body=body)
+    assert [f.issue for f in lint(document)] == ["TRUST_NO_STATEMENT"]
+
+
+def test_the_set_of_trust_checks_is_pinned() -> None:
+    """So a sixth check cannot ship untested with the suite green.
+
+    The issue codes are read out of the source rather than out of a run, because a check that is
+    never triggered by any fixture would not appear in a run at all, which is exactly the case
+    this is meant to catch.
+    """
+    from quiltz import policies
+
+    source = pathlib.Path(policies.__file__).read_text(encoding="utf-8")
+    codes = set(re.findall(r'"(TRUST_[A-Z_]+)"', source))
+    assert codes == {
+        "TRUST_NO_PRINCIPAL",
+        "TRUST_NO_STATEMENT",
+        "TRUST_NOT_ALLOW",
+        "TRUST_PRINCIPAL_STAR",
+        "TRUST_UNEXPECTED_ACTION",
+    }, f"the set of trust checks changed to {sorted(codes)}. Add the test with the check."
