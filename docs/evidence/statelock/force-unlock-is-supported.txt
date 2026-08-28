@@ -1,0 +1,4 @@
+[0m[1m[32mTerraform state has been successfully unlocked![0m[32m
+
+The state has been unlocked, and Terraform commands should now be able to
+obtain a new lock on the remote state.[0m
