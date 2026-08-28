@@ -21,7 +21,7 @@ def test_every_limit_that_has_been_found_is_here_and_the_count_is_asserted() -> 
     names = {limit.name for limit in NOT_REPRODUCED}
     assert names == {
         "IAM condition evaluation",
-        "S3 consistency behaviour",
+        "S3 consistency",
         "request cost",
         "service quotas",
     }
@@ -57,3 +57,25 @@ def test_the_proved_column_is_not_empty_and_does_not_overreach() -> None:
         lowered = claim.lower()
         for word in forbidden:
             assert word not in lowered, f"the proved column overreaches with {word!r}: {claim}"
+
+
+def test_the_consistency_limit_names_the_race_in_this_repository() -> None:
+    """It is easy to write "the emulator is consistent and AWS is not" and mean nothing by it.
+
+    Since 2020 S3 has been strongly read-after-write consistent for PUT and DELETE in every
+    region, so a limit phrased around object reads would be describing a problem AWS solved.
+    What is still eventually consistent is bucket configuration, and AWS recommends waiting
+    about fifteen minutes after enabling versioning before writing. This repository provisions
+    a bucket with versioning and then configures its contents seconds later, so the limit is
+    about this configuration rather than about S3 in the abstract.
+
+    The test names the sequence, so the claim cannot be softened back into a generality.
+    """
+    limit = next(limit for limit in NOT_REPRODUCED if limit.name == "S3 consistency")
+    said = limit.what_it_therefore_cannot_tell_you
+    assert "fifteen minutes" in said, "the specific guidance is what makes the limit checkable"
+    assert "modules/storage" in said, "the limit does not say which of this repository races"
+    assert "2020" in said, (
+        "without the date this reads as though object reads were still the problem, which "
+        "would be describing S3 as it stopped being six years ago"
+    )
