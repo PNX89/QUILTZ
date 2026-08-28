@@ -93,6 +93,12 @@ def test_the_boundary_decision_names_what_it_rejected_and_why() -> None:
     for claim in ("moto", "one host", "localhost"):
         assert claim in text, f"the ADR does not admit the limit about {claim}"
 
+    # The versioning propagation race, added 28-8-2026. It sits on the seam this ADR draws,
+    # Terraform setting the configuration and Ansible writing through it, so an ADR that argued
+    # for the seam without naming what the seam exposes would be selling the decision.
+    assert "fifteen minutes" in text, "the ADR does not name the propagation window"
+    assert "unversioned" in text, "the ADR does not say what going too early would cost"
+
 
 @pytest.mark.emulator
 def test_the_playbook_is_idempotent_against_a_live_emulator() -> None:

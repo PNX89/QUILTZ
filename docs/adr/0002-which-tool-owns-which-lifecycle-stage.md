@@ -56,6 +56,21 @@ in this repository.
 It also says nothing about Ansible at scale. There is one host, it is `localhost`, and there is
 no inventory. Ansible against a fleet is a different subject and this is not evidence about it.
 
+And there is a race here that the emulator will never show, which is worth naming because it sits
+exactly on the boundary this decision draws. Terraform enables versioning on the bucket; the
+playbook writes objects into it seconds later. Object reads at AWS are strongly consistent and
+have been since 2020, so that is not the concern. Bucket configuration is not: AWS recommends
+waiting about fifteen minutes after enabling versioning before issuing writes, because the setting
+takes time to propagate. An object written inside that window can land unversioned in a bucket
+whose configuration says otherwise.
+
+The emulator answers both immediately, so the whole sequence converges here every time and would
+keep converging if the gap were a minute or a day. Handing the two stages to two tools is what
+makes the gap visible at all, since it is the seam between them. Closing it means a wait or a
+check on the propagated configuration before the first write, and this repository does neither:
+it names the gap instead, because a fix nothing here can exercise would be a fix nobody can
+verify.
+
 ## Rejected alternatives
 
 **One tool for both stages.** Simpler to explain and it puts contents into a state file that
