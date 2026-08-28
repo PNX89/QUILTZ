@@ -107,7 +107,7 @@ NOT_REPRODUCED: tuple[Limit, ...] = (
     ),
     Limit(
         name="request cost",
-        what_the_emulator_does="charges nothing and counts nothing",
+        what_the_emulator_does="charge nothing and count nothing",
         what_it_therefore_cannot_tell_you=(
             "that a module which converges here would be expensive at AWS. A loop that lists a "
             "bucket a thousand times is free in this suite"
