@@ -10,12 +10,13 @@ on its first screenful rather than in a footnote.**
 [![OpenTofu 1.12 MPL](https://img.shields.io/badge/opentofu-1.12.6%20MPL--2.0-ffda18)](https://opentofu.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Three modules totalling fourteen resources, a chart and a playbook, every one of them applied
-to `moto` and none of them to an
-account. That buys real things and it does not buy everything, and the difference is the subject
-here rather than an afterthought. If you open one file, open [`src/quiltz/boundary.py`]: the
-right-hand column below is that file, and three of its four entries were wrong when they were
-finally measured.
+Three modules totalling fourteen resources, a chart and a playbook. The modules and the playbook
+are applied to `moto`, the chart is rendered and linted with no cluster anywhere, and none of it
+has ever reached an account. That buys real things and it does not buy everything, and the
+difference is the subject here rather than an afterthought. If you open one file, open
+[`src/quiltz/boundary.py`]: the right-hand column below is that file, and two of its four entries
+were wrong when they were finally measured. Three of the five claims in the left-hand column were
+narrowed the same day, which is the more damning half of the same admission.
 
 <!-- boundary:start -->
 
@@ -178,9 +179,14 @@ binaries against the emulator, the queue-to-topic path that needs a runtime, and
 against a real PostgreSQL. Every committed artefact is regenerated in one of them and the job
 fails if it has drifted.
 
-Every figure and every block on this page is checked by `tests/test_readme.py` against the thing
-it describes. The boundary table is generated from `src/quiltz/boundary.py` rather than typed
-beside it, because every number that went wrong here went wrong by being written twice.
+These figures are recomputed by `tests/test_readme.py` and compared inside the sentence that
+carries each one, rather than searched for on the page: the module and resource inventory, the
+leaf count and both binary versions, the policy tally and the four lines under it, the size of
+each column of the boundary table, the state lock facts and the CI jobs. The comparison used to
+be a substring search over the whole file, which the Python badge satisfied on its own: it reads
+python-3.11 | 3.12 | 3.13, so a sentence claiming any of those leaf counts passed while the plans
+said something else. The boundary table is generated from `src/quiltz/boundary.py` rather than
+typed beside it, because every number that went wrong here went wrong by being written twice.
 
 <!-- toolset:start -->
 
