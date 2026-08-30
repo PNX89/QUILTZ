@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 
 import pytest
 
@@ -44,6 +45,26 @@ def test_the_transcripts_say_what_the_facts_claim() -> None:
 
     unlock = (EVIDENCE / "force-unlock-is-supported.txt").read_text(encoding="utf-8")
     assert "successfully unlocked" in unlock.lower()
+
+    # The module docstring also claims a PostgreSQL version, and until 29-8-2026 that number was
+    # in no transcript at all: `measure_statelock.sh` never captured it, and ci.yml pinned only
+    # `postgres:17`, which floats across patch releases. Checked here, against
+    # postgres-version.txt, rather than in summary.json: that file is byte-diffed in CI, and a
+    # version string carries the OS and architecture of whatever produced it, which is the same
+    # reason the advisory-lock COUNT elsewhere in this file is recorded as held-or-not rather
+    # than exact.
+    from quiltz import statelock
+
+    source = pathlib.Path(statelock.__file__).read_text(encoding="utf-8")
+    claimed = re.search(r"PostgreSQL (\d+\.\d+)", source)
+    assert claimed, "the module no longer names a PostgreSQL version to check this against"
+
+    version = (EVIDENCE / "postgres-version.txt").read_text(encoding="utf-8")
+    assert version.startswith("$ "), "the version transcript does not record its own command"
+    assert claimed.group(1) in version, (
+        f"the module claims PostgreSQL {claimed.group(1)} and the transcript this run produced "
+        f"does not name that version: {version!r}"
+    )
 
 
 def test_the_two_corrections_to_the_specification_are_recorded_as_corrections() -> None:

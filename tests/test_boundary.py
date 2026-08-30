@@ -170,6 +170,12 @@ def test_both_convergence_transcripts_record_a_second_apply_with_nothing_to_do()
         assert transcript.exists(), f"{binary} is claimed to converge with no transcript"
         text = transcript.read_text(encoding="utf-8")
         assert text.splitlines()[0].startswith("$ "), f"{binary}.txt does not record its command"
+        assert "-state=" in text.splitlines()[0], (
+            f"{binary}.txt does not record the -state flag run() actually passes in "
+            f"scripts/prove_convergence.sh. A reader who runs the printed line gets the "
+            f"default state file shared between the two binaries, which is the weaker "
+            f"experiment the flag exists to avoid"
+        )
 
         lines = result_lines(text)
         assert counts(lines["second"]) == (0, 0, 0), (

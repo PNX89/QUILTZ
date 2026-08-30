@@ -211,7 +211,7 @@ def compare(first: dict[str, Any], second: dict[str, Any]) -> list[Difference]:
     """Every leaf on which two JSON plans disagree, tool metadata included.
 
     Nothing is filtered here. The caller decides what to forgive, and it does so against
-    `TOOL_METADATA_LEAVES`, so the exemptions are readable in one place rather than buried in a
+    `TOOL_METADATA_PATHS`, so the exemptions are readable in one place rather than buried in a
     comparison function that quietly skips things.
     """
     out: list[Difference] = []

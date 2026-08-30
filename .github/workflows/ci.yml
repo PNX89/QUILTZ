@@ -164,12 +164,18 @@ jobs:
   # that is diffed. Without this job the five facts would be exactly what they were until
   # 28-8-2026, hand-produced numbers nobody could reproduce, three of which turned out to have
   # evidence that did not support them.
+  #
+  # Pinned to the exact patch release statelock.py names, not the floating `postgres:17`, which
+  # would let the actual server this job re-derives against drift out from under a number
+  # written down as measured. measure_statelock.sh records the server's own answer to `select
+  # version()` in docs/evidence/statelock/postgres-version.txt, and test_statelock.py fails if
+  # that recorded version stops matching the one statelock.py claims.
   statelock:
     name: the state lock, against a real PostgreSQL
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        image: postgres:17.10
         env:
           POSTGRES_USER: quiltz
           POSTGRES_PASSWORD: quiltz

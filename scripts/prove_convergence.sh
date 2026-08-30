@@ -44,8 +44,8 @@ first_line="$(printf '%s' "$FIRST" | grep -E '^Apply complete!' || true)"
 second_line="$(printf '%s' "$SECOND" | grep -E '^Apply complete!' || true)"
 
 {
-  echo "\$ $BINARY apply -auto-approve -no-color -var endpoint=$ENDPOINT -var bucket_name=$BUCKET"
-  echo "\$ $BINARY apply -auto-approve -no-color -var endpoint=$ENDPOINT -var bucket_name=$BUCKET"
+  echo "\$ $BINARY apply -auto-approve -no-color -state=\"$STATE\" -var endpoint=$ENDPOINT -var bucket_name=$BUCKET"
+  echo "\$ $BINARY apply -auto-approve -no-color -state=\"$STATE\" -var endpoint=$ENDPOINT -var bucket_name=$BUCKET"
   echo "# the same command twice. The second one is the claim."
   echo
   echo "$BINARY version: $("$BINARY" version -json | python3 -c 'import json,sys;print(json.load(sys.stdin)["terraform_version"])')"

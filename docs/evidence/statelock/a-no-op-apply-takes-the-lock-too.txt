@@ -11,12 +11,12 @@ Error: Error acquiring the state lock
 
 Error message: Workspace is already locked: default
 Lock Info:
-  ID:        71cf69e1-8777-c7c8-4f86-cb858fccaf28
+  ID:        d725e93e-f0d8-336e-9d81-5f7c4ff71646
   Path:      
   Operation: OperationTypeApply
   Who:       workhorse@Quelins-Mini
   Version:   1.16.0
-  Created:   2026-08-28 09:45:43.823445 +0000 UTC
+  Created:   2026-08-30 21:54:16.442987 +0000 UTC
   Info:      
 
 
@@ -29,7 +29,7 @@ $ terraform apply -auto-approve -no-color -var tag=realwork -var seconds=1   # a
 $ psql <conn> -At -c "select count(*) from pg_locks where locktype='advisory' and granted;"  # every 50ms
 highest granted advisory lock count seen during that lone no-op apply: 1
 
-null_resource.slow: Refreshing state... [id=2528930991039973396]
+null_resource.slow: Refreshing state... [id=384544476482216763]
 
 No changes. Your infrastructure matches the configuration.
 

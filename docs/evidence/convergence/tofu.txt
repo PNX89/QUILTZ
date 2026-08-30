@@ -1,5 +1,5 @@
-$ tofu apply -auto-approve -no-color -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-converge-tofu
-$ tofu apply -auto-approve -no-color -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-converge-tofu
+$ tofu apply -auto-approve -no-color -state="/Users/workhorse/Developer/qfolioz/QUILTZ/.convergence-tofu.tfstate" -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-converge-tofu
+$ tofu apply -auto-approve -no-color -state="/Users/workhorse/Developer/qfolioz/QUILTZ/.convergence-tofu.tfstate" -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-converge-tofu
 # the same command twice. The second one is the claim.
 
 tofu version: 1.12.6
