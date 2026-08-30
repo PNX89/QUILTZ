@@ -130,6 +130,39 @@ def test_every_policy_the_modules_write_is_either_linted_or_named_as_unreadable(
     assert written == accounted, f"unaccounted for: {sorted(written ^ accounted)}"
     assert len(written) == 4
 
+    # documents_in_plan had no equivalent of the `written` filter above until 29-8-2026:
+    # unknown_in_plan already refuses to name a `policy` attribute AWS populated on a resource
+    # whose configuration never set one, and documents_in_plan collected it anyway. A real
+    # `aws_sqs_queue` gets exactly this shape whenever its configuration is silent about
+    # `policy`, so this is fabricated by hand rather than pulled from a committed plan, which is
+    # the reason it stayed latent long enough to be found by inspection instead of by a red suite.
+    aws_populated = {
+        "resource_changes": [
+            {
+                "address": "aws_sqs_queue.no_policy_written",
+                "change": {
+                    "after": {"policy": json.dumps({"Version": "2012-10-17", "Statement": []})},
+                    "after_unknown": {},
+                },
+            }
+        ],
+        "configuration": {
+            "root_module": {
+                "resources": [
+                    {"address": "aws_sqs_queue.no_policy_written", "expressions": {}},
+                ]
+            }
+        },
+    }
+    assert documents_in_plan(aws_populated) == [], (
+        "a policy attribute AWS populated, rather than one the configuration wrote, was "
+        "collected as a document this repository created"
+    )
+    assert unknown_in_plan(aws_populated) == [], (
+        "the fixture is not shaped the way the real bug was: this attribute is known, not "
+        "unknown, so unknown_in_plan filtering it out proves nothing about documents_in_plan"
+    )
+
 
 def test_every_policy_the_modules_create_is_clean() -> None:
     """The claim, over every real plan rather than over a fixture or over one of them.
@@ -259,6 +292,20 @@ def test_a_policy_attribute_that_is_not_json_raises_rather_than_passing() -> Non
     broken["resource_changes"][0]["change"]["after"]["policy"] = "{not json at all"
     with pytest.raises(ValueError, match="not parseable JSON"):
         documents_in_plan(broken)
+
+    # An empty string used to be indistinguishable from `null` here: `if not raw: continue`
+    # skipped both. `null` genuinely means nothing is planned (a policy Terraform cannot show
+    # yet, unknown_in_plan's to name); an empty string is a document that IS present and is not
+    # parseable JSON, and it must raise exactly as the whitespace-only case below does.
+    empty = plan()
+    empty["resource_changes"][0]["change"]["after"]["policy"] = ""
+    with pytest.raises(ValueError, match="not parseable JSON"):
+        documents_in_plan(empty)
+
+    whitespace = plan()
+    whitespace["resource_changes"][0]["change"]["after"]["policy"] = "   "
+    with pytest.raises(ValueError, match="not parseable JSON"):
+        documents_in_plan(whitespace)
 
 
 def test_an_unrecognised_document_kind_raises() -> None:
@@ -401,11 +448,15 @@ def test_a_document_with_no_statements_is_not_called_clean(body: dict[str, Any])
 
 
 def test_the_set_of_trust_checks_is_pinned() -> None:
-    """So a sixth check cannot ship untested with the suite green.
+    """So a new check cannot ship untested with the suite green.
 
     The issue codes are read out of the source rather than out of a run, because a check that is
     never triggered by any fixture would not appear in a run at all, which is exactly the case
-    this is meant to catch.
+    this is meant to catch. TRUST_NO_ACTION and TRUST_NOTACTION, added 29-8-2026, are proved
+    reachable below rather than left standing on the strength of appearing in this set: before
+    they existed, a statement with no Action key and no NotAction key produced an empty
+    `outside` list and no finding, indistinguishable from a statement whose actions were all
+    inside ASSUME_ACTIONS, and NotAction was never read by anything in this module at all.
     """
     from quiltz import policies
 
@@ -417,7 +468,43 @@ def test_the_set_of_trust_checks_is_pinned() -> None:
         "TRUST_NOT_ALLOW",
         "TRUST_PRINCIPAL_STAR",
         "TRUST_UNEXPECTED_ACTION",
+        "TRUST_NO_ACTION",
+        "TRUST_NOTACTION",
     }, f"the set of trust checks changed to {sorted(codes)}. Add the test with the check."
+
+    no_action = Document(
+        address="aws_iam_role.silent",
+        attribute="assume_role_policy",
+        body={
+            "Version": "2012-10-17",
+            "Statement": [
+                {"Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::111111111111:root"}}
+            ],
+        },
+    )
+    assert "TRUST_NO_ACTION" in {f.issue for f in lint(no_action)}, (
+        "a trust statement with a Principal and neither Action nor NotAction at all was "
+        "reported clean"
+    )
+
+    notaction = Document(
+        address="aws_iam_role.inverted",
+        attribute="assume_role_policy",
+        body={
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": "arn:aws:iam::111111111111:root"},
+                    "NotAction": "iam:*",
+                }
+            ],
+        },
+    )
+    assert "TRUST_NOTACTION" in {f.issue for f in lint(notaction)}, (
+        "NotAction in a trust policy, which grants every action it does not name, was reported "
+        "clean"
+    )
 
 
 def test_no_finding_carries_a_blank_title() -> None:
@@ -429,6 +516,12 @@ def test_no_finding_carries_a_blank_title() -> None:
 
     Checked over real findings from a genuinely over-broad policy, rather than over the clean
     plans, because a clean document produces no findings and this would pass vacuously.
+
+    `detail` is checked here too. The module docstring names the issue code and the detail as
+    the two fields that are genuinely real from parliament's API, and detail is the only
+    descriptive text `test_every_policy_the_modules_create_is_clean` prints on a failure: an
+    identity finding with an emptied detail still passed every test in this file until this
+    assertion existed.
     """
     over_broad = Document(
         address="aws_iam_policy.too_much",
@@ -443,6 +536,7 @@ def test_no_finding_carries_a_blank_title() -> None:
     for finding in findings:
         assert finding.title, f"{finding.issue} has a blank title"
         assert finding.issue, "a finding with no issue code cannot be looked up"
+        assert finding.detail, f"{finding.issue} has a blank detail"
 
 
 def test_the_severity_field_is_not_reported_at_all() -> None:

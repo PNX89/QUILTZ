@@ -14,7 +14,7 @@ and a file edited to be convenient is no longer that.
 So exactly one leaf is forgiven, `timestamp`, and it is named here with its reason.
 
 `terraform_version` is deliberately NOT forgiven, although it is forgiven by
-`planparity.TOOL_METADATA_LEAVES` when comparing the two binaries to each other. Those are
+`planparity.TOOL_METADATA_PATHS` when comparing the two binaries to each other. Those are
 different questions. There, the version differing is the experiment. Here, it means the binary
 that produced this run is not the pinned one, and reporting that as "no drift" would hide a
 version bump inside a green check.

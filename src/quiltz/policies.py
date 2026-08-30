@@ -15,8 +15,8 @@ configuration only along its command-line path. So nothing here reports a severi
 presented as "severity: LOW" would be a rating invented by the reporting layer.
 
 `title` IS BLANK BY EXACTLY THE SAME MECHANISM, and this paragraph said it was real until
-28-8-2026 while the code three hundred lines below stored `str(finding.title)` into a field the
-rest of the module treats as meaningful. So the warning was correct, and the file was committing
+28-8-2026 while `_lint_identity`, below, stored `str(finding.title)` into a field the rest of
+the module treats as meaningful. So the warning was correct, and the file was committing
 the very thing it warned about, one field over. What is genuinely real from the Python API is
 the issue code and the detail. An identity finding therefore takes its title from its issue
 code, which is the human-readable name parliament gives it, and a test asserts no finding
@@ -123,18 +123,49 @@ class Finding:
     detail: str
 
 
+def _written_attributes(plan: dict[str, Any]) -> set[str]:
+    """Every `{address}.{attribute}` the configuration itself wrote, shared by both functions
+    below so they cannot quietly disagree about what counts as a document this repository wrote.
+
+    ONLY ATTRIBUTES THE CONFIGURATION ACTUALLY SETS COUNT. `aws_sqs_queue` and `aws_sns_topic`
+    both carry a `policy` attribute that Terraform marks unknown, or fills in from AWS, whenever
+    the configuration is silent about it, because AWS may return one on its own. An attribute
+    named `policy` that arrived that way is not a document this repository wrote, and treating it
+    as one would hand something the modules never authored to a policy linter.
+    """
+    return {
+        f"{resource['address']}.{attribute}"
+        for resource in plan.get("configuration", {}).get("root_module", {}).get("resources", [])
+        for attribute in ATTRIBUTE_KINDS
+        if attribute in resource.get("expressions", {})
+    }
+
+
 def documents_in_plan(plan: dict[str, Any]) -> list[Document]:
     """Every policy document the planned resources would create.
 
     Raises on a policy attribute that is present and not parseable JSON, rather than skipping
-    it. A document the linter cannot read is not a document that passed.
+    it. A document the linter cannot read is not a document that passed. Until 29-8-2026 the
+    guard here was `if not raw: continue`, which is true of `None` AND of `""`, so an empty
+    string was silently dropped instead of reaching `json.loads` and raising as a whitespace
+    string already did. `raw is None` is the only shape that means "nothing planned here": a
+    policy Terraform cannot show yet is `null` in `after` and is `unknown_in_plan`'s to name.
+
+    Filtered by `_written_attributes`, the same filter `unknown_in_plan` uses, so the two
+    functions cannot disagree about what a "document the modules write" means. Before 29-8-2026
+    this function had no such filter, so a `policy` attribute AWS populated on a resource whose
+    configuration never set one would be collected here and reported as an identity document
+    nobody wrote, while `unknown_in_plan` correctly ignored the same attribute.
     """
+    written = _written_attributes(plan)
     out: list[Document] = []
     for change in plan.get("resource_changes", []):
         after = (change.get("change") or {}).get("after") or {}
         for attribute in ATTRIBUTE_KINDS:
+            if f"{change['address']}.{attribute}" not in written:
+                continue
             raw = after.get(attribute)
-            if not raw:
+            if raw is None:
                 continue
             try:
                 body = json.loads(raw)
@@ -163,18 +194,9 @@ def unknown_in_plan(plan: dict[str, Any]) -> list[str]:
     Returning the addresses, rather than a count, so a test can name which ones are unreadable
     and fail when that set changes.
 
-    ONLY ATTRIBUTES THE CONFIGURATION ACTUALLY SETS COUNT. `aws_sqs_queue` and `aws_sns_topic`
-    both carry a `policy` attribute that Terraform marks unknown whenever the configuration is
-    silent about it, because AWS may return one. Reporting those three as documents this
-    repository writes but cannot lint would inflate the limit fourfold with resources that have
-    no policy at all. The configuration block says which attributes the module wrote.
+    ONLY ATTRIBUTES THE CONFIGURATION ACTUALLY SETS COUNT; see `_written_attributes`.
     """
-    written = {
-        f"{resource['address']}.{attribute}"
-        for resource in plan.get("configuration", {}).get("root_module", {}).get("resources", [])
-        for attribute in ATTRIBUTE_KINDS
-        if attribute in resource.get("expressions", {})
-    }
+    written = _written_attributes(plan)
     out: list[str] = []
     for change in plan.get("resource_changes", []):
         unknown = (change.get("change") or {}).get("after_unknown") or {}
@@ -250,10 +272,14 @@ def _identifiers(principal: object) -> list[str]:
 def _lint_trust(document: Document) -> list[Finding]:
     """The checks parliament cannot make, because it reads every document as an identity policy.
 
-    Five checks. Four are ways to give a role away; the fifth refuses to call a document with no
-    statements clean, because that would be an empty finding list for a document nobody
-    examined. This is not a linter and does not pretend to be one. The count is pinned by a
-    test, so a sixth cannot arrive without a test arriving with it.
+    Seven checks now, not five. Three are ways to give a role away: an unrestricted Principal, an
+    Action outside the assume-role family, and NotAction, which was not read at all until
+    29-8-2026 and inverts the set the other two exist to constrain, so a statement excluding only
+    `iam:*` grants everything else in AWS. The other four refuse to call a document clean when
+    this checker cannot reason about what it grants: no statements, no Principal, no Action and
+    no NotAction either, or an Effect other than Allow. This is not a linter and does not pretend
+    to be one. The count is pinned by a test, so an eighth cannot arrive without a test arriving
+    with it.
 
     The wildcard check reads every shape a Principal can take. It did not until 28-8-2026, when
     it compared dict values against the string "*" and so missed the array form the aws provider
@@ -302,19 +328,46 @@ def _lint_trust(document: Document) -> list[Finding]:
                 )
             )
 
-        actions = statement.get("Action") or []
-        if isinstance(actions, str):
-            actions = [actions]
-        outside = [a for a in actions if str(a).lower() not in ASSUME_ACTIONS]
-        if outside:
+        action = statement.get("Action")
+        not_action = statement.get("NotAction")
+        if not action and not not_action:
+            # `actions = statement.get("Action") or []` used to make this indistinguishable from
+            # a statement whose actions all happen to be inside ASSUME_ACTIONS: both produced an
+            # empty `outside` and no finding. NotAction was never read at all, so this branch was
+            # unreachable by any name and a statement with neither key was reported clean.
             out.append(
                 Finding(
                     where,
-                    "TRUST_UNEXPECTED_ACTION",
-                    "a trust policy grants something other than assuming the role",
-                    f"actions outside the assume-role family: {outside}",
+                    "TRUST_NO_ACTION",
+                    "trust statement names no action",
+                    "the statement has neither Action nor NotAction, so nothing here says what "
+                    "it grants. Reporting it clean would be an empty finding list for a "
+                    "statement that was never examined",
                 )
             )
+        elif not_action:
+            out.append(
+                Finding(
+                    where,
+                    "TRUST_NOTACTION",
+                    "trust statement uses NotAction, which inverts the allowed set",
+                    f"NotAction is {not_action!r}; every action it does not name is implicitly "
+                    f"allowed. This checker does not reason about what that leaves in and will "
+                    f"not pass it silently",
+                )
+            )
+        else:
+            actions = action if isinstance(action, list) else [action]
+            outside = [a for a in actions if str(a).lower() not in ASSUME_ACTIONS]
+            if outside:
+                out.append(
+                    Finding(
+                        where,
+                        "TRUST_UNEXPECTED_ACTION",
+                        "a trust policy grants something other than assuming the role",
+                        f"actions outside the assume-role family: {outside}",
+                    )
+                )
 
         if statement.get("Effect") != "Allow":
             out.append(

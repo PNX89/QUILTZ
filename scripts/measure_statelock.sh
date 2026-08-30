@@ -55,6 +55,19 @@ apply_cmd() { echo "terraform apply -auto-approve -no-color -var tag=$1 -var sec
 echo "==> resetting"
 reset_state
 
+# statelock.py names a PostgreSQL version in prose and no transcript ever recorded it, so a
+# reader had no way to check the number and CI pinned only `postgres:17`, which floats across
+# patch releases. Captured here, into its own transcript rather than into summary.json: the
+# version string carries the OS and architecture of whatever ran it, which is exactly the kind
+# of detail that made the advisory-lock COUNT non-reproducible between macOS and Linux further
+# down, and summary.json is byte-diffed while this file is not.
+echo "==> recording the PostgreSQL version this run measured against"
+PG_VERSION="$(psql "$CONN" -At -c "select version();" 2>/dev/null || echo "unknown")"
+{
+  echo "\$ psql <conn> -At -c \"select version();\""
+  echo "$PG_VERSION"
+} > "$OUT/postgres-version.txt"
+
 # Prime the workspace before measuring anything. The pg backend creates its workspace row on the
 # first apply, and a second apply arriving during THAT is refused with "Already locked for
 # workspace creation: default", which is a different code path from the ordinary state lock and
