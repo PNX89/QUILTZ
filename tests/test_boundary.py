@@ -9,10 +9,47 @@ being written down three times.
 from __future__ import annotations
 
 import pathlib
+import re
 
 from quiltz.boundary import NOT_REPRODUCED, PROVED, Limit
 
 CONVERGENCE = pathlib.Path(__file__).resolve().parents[1] / "docs" / "evidence" / "convergence"
+
+# A transcript carries two result lines and the claim is about the second one, so both are read
+# by their label. Reading them by label is the whole fix: the assertion here used to be a
+# substring search for a no-op result anywhere in the file, and a file recording that the first
+# apply did nothing and the second built two resources, which is the opposite of the claim,
+# satisfied it.
+RESULT = re.compile(r"^(?P<which>first|second)\s+run:\s*(?P<line>.*)$", re.M)
+COUNTS = re.compile(r"(?P<added>\d+) added, (?P<changed>\d+) changed, (?P<destroyed>\d+) destroyed")
+
+
+def result_lines(transcript: str) -> dict[str, str]:
+    """The two Apply complete lines, keyed by which run produced them."""
+    found = {match["which"]: match["line"].strip() for match in RESULT.finditer(transcript)}
+    assert set(found) == {"first", "second"}, (
+        f"a convergence transcript records the runs it made, and this one labels {sorted(found)}"
+    )
+    return found
+
+
+def counts(line: str) -> tuple[int, int, int]:
+    """Added, changed and destroyed, out of one Apply complete line."""
+    counted = COUNTS.search(line)
+    assert counted, f"no apply result to read in {line!r}"
+    return int(counted["added"]), int(counted["changed"]), int(counted["destroyed"])
+
+
+def converges(transcript: str) -> bool:
+    """A first apply that built something, and a second that then found nothing to do.
+
+    Both halves, because either on its own is satisfied by a transcript that proves nothing: a
+    repeat apply changing nothing after a first apply that also changed nothing describes a
+    configuration that was never applied. scripts/prove_convergence.sh makes exactly this pair
+    of checks in the shell before it writes the file, and the offline suite made neither.
+    """
+    lines = result_lines(transcript)
+    return counts(lines["first"])[0] > 0 and counts(lines["second"]) == (0, 0, 0)
 
 
 def test_every_limit_that_has_been_found_is_here_and_the_count_is_asserted() -> None:
@@ -100,17 +137,12 @@ def test_each_proved_claim_names_something_this_repository_actually_establishes(
 
     joined = "\n".join(PROVED)
 
-    # Convergence: both binaries apply twice, and the second run must find nothing to do.
+    # Convergence: both binaries apply twice, and the second run must find nothing to do. The
+    # transcripts themselves are read by the two tests below this one.
     assert "applying it twice" in joined, (
         "the convergence claim no longer says what convergence means, and 'converges' on its "
         "own was a word rather than a measurement for as long as it stood alone"
     )
-    for binary in ("terraform", "tofu"):
-        transcript = CONVERGENCE / f"{binary}.txt"
-        assert transcript.exists(), f"{binary} is claimed to converge with no transcript"
-        text = transcript.read_text(encoding="utf-8")
-        assert text.splitlines()[0].startswith("$ "), f"{binary}.txt does not record its command"
-        assert "0 added, 0 changed, 0 destroyed" in text
 
     # Policy coverage: linted or named, with nothing in between.
     assert "either linted or named" in joined, (
@@ -123,4 +155,54 @@ def test_each_proved_claim_names_something_this_repository_actually_establishes(
     assert "blocks on a lock" not in joined, (
         "this repository's own statelock transcript shows a second apply exiting 1 immediately "
         "rather than waiting, so 'blocks' was contradicted by evidence already committed"
+    )
+
+
+def test_both_convergence_transcripts_record_a_second_apply_with_nothing_to_do() -> None:
+    """The claim, read off the line that carries it rather than off the file.
+
+    Each half is asserted separately so a failure says which one went: a second apply that built
+    something is a configuration that does not converge, and a first apply that built nothing is
+    a measurement of nothing at all.
+    """
+    for binary in ("terraform", "tofu"):
+        transcript = CONVERGENCE / f"{binary}.txt"
+        assert transcript.exists(), f"{binary} is claimed to converge with no transcript"
+        text = transcript.read_text(encoding="utf-8")
+        assert text.splitlines()[0].startswith("$ "), f"{binary}.txt does not record its command"
+
+        lines = result_lines(text)
+        assert counts(lines["second"]) == (0, 0, 0), (
+            f"the second apply under {binary} reported {lines['second']!r}, so the configuration "
+            f"does not describe a fixed point and the PROVED column cannot say it does"
+        )
+        assert counts(lines["first"])[0] > 0, (
+            f"the first apply under {binary} added nothing, so the second one changing nothing "
+            f"proves nothing: {lines['first']!r}"
+        )
+
+
+def test_a_transcript_with_its_two_runs_the_other_way_round_is_refused() -> None:
+    """The guard, run against the transcript it was written for rather than trusted.
+
+    The swap is the one that was survived: the first apply does nothing and the second builds
+    two resources, which is the opposite of convergence, and a no-op result line is still
+    somewhere in the file for a substring search to find.
+    """
+    honest = (CONVERGENCE / "terraform.txt").read_text(encoding="utf-8")
+    assert converges(honest), "the committed transcript no longer records what it claims"
+
+    lines = result_lines(honest)
+    swapped = (
+        honest.replace(lines["first"], "SWAP")
+        .replace(lines["second"], lines["first"])
+        .replace("SWAP", lines["second"])
+    )
+    assert "0 added, 0 changed, 0 destroyed" in swapped, (
+        "the swapped transcript no longer contains a no-op result, so it is not the file that "
+        "used to pass and this test would be proving something else"
+    )
+    assert not converges(swapped), (
+        "a transcript whose first apply did nothing and whose second built two resources was "
+        "read as convergence"
     )
