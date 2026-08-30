@@ -202,3 +202,46 @@ def test_the_generator_is_idempotent() -> None:
     from readme_block import block
 
     assert block() == block()
+
+
+def test_the_inventory_on_the_front_page_is_the_one_on_disk() -> None:
+    """The first fact on the page said six modules. There are three.
+
+    A reader who counts is a reader the whole repository is written for: its argument is that
+    infrastructure code can be proved wrong without a cloud account, and the first sentence they
+    can check was wrong by a factor of two. That is the cheapest possible thing to get right and
+    the most expensive to be caught on.
+
+    Counted from the tree rather than pinned, and the resource total is counted too, because a
+    module count alone would still be satisfied by three empty directories.
+    """
+    modules = sorted(p for p in (REPO / "modules").iterdir() if p.is_dir())
+    resources = 0
+    for module in modules:
+        for tf in module.rglob("*.tf"):
+            resources += len(re.findall(r'^resource\s+"', tf.read_text(encoding="utf-8"), re.M))
+
+    words = {1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five", 6: "Six", 7: "Seven"}
+    numbers = {
+        11: "eleven",
+        12: "twelve",
+        13: "thirteen",
+        14: "fourteen",
+        15: "fifteen",
+        16: "sixteen",
+        17: "seventeen",
+        18: "eighteen",
+    }
+    prose = " ".join(README.read_text(encoding="utf-8").split())
+
+    assert modules, "no modules found at all, so this test is checking nothing"
+    assert f"{words[len(modules)]} modules" in prose, (
+        f"there are {len(modules)} modules on disk and the front page does not say so"
+    )
+    assert f"{numbers[resources]} resources" in prose, (
+        f"the modules declare {resources} resources and the front page does not say so"
+    )
+
+    # The chart and the playbook are named in the same sentence, so they are counted too.
+    assert len(list((REPO / "charts").iterdir())) == 1
+    assert len(list((REPO / "playbooks").glob("*.yml"))) == 1

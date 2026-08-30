@@ -10,7 +10,8 @@ on its first screenful rather than in a footnote.**
 [![OpenTofu 1.12 MPL](https://img.shields.io/badge/opentofu-1.12.6%20MPL--2.0-ffda18)](https://opentofu.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Six modules, a chart and a playbook, every one of them applied to `moto` and none of them to an
+Three modules totalling fourteen resources, a chart and a playbook, every one of them applied
+to `moto` and none of them to an
 account. That buys real things and it does not buy everything, and the difference is the subject
 here rather than an afterthought. If you open one file, open [`src/quiltz/boundary.py`]: the
 right-hand column below is that file, and three of its four entries were wrong when they were
