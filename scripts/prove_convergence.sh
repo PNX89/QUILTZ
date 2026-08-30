@@ -44,8 +44,12 @@ first_line="$(printf '%s' "$FIRST" | grep -E '^Apply complete!' || true)"
 second_line="$(printf '%s' "$SECOND" | grep -E '^Apply complete!' || true)"
 
 {
-  echo "\$ $BINARY apply -auto-approve -no-color -state=\"$STATE\" -var endpoint=$ENDPOINT -var bucket_name=$BUCKET"
-  echo "\$ $BINARY apply -auto-approve -no-color -state=\"$STATE\" -var endpoint=$ENDPOINT -var bucket_name=$BUCKET"
+  # $(git rev-parse --show-toplevel), not $STATE: STATE is an absolute path built from wherever
+  # this checkout happens to live, and printing it verbatim would put a local filesystem path
+  # into committed, published evidence. The substitution below is the thing a reader can
+  # actually paste and run, from any checkout, rather than a path that only ever existed here.
+  echo "\$ $BINARY apply -auto-approve -no-color -state=\"\$(git rev-parse --show-toplevel)/.convergence-$BINARY.tfstate\" -var endpoint=$ENDPOINT -var bucket_name=$BUCKET"
+  echo "\$ $BINARY apply -auto-approve -no-color -state=\"\$(git rev-parse --show-toplevel)/.convergence-$BINARY.tfstate\" -var endpoint=$ENDPOINT -var bucket_name=$BUCKET"
   echo "# the same command twice. The second one is the claim."
   echo
   echo "$BINARY version: $("$BINARY" version -json | python3 -c 'import json,sys;print(json.load(sys.stdin)["terraform_version"])')"

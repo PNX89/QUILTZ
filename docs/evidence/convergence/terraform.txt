@@ -1,5 +1,5 @@
-$ terraform apply -auto-approve -no-color -state="/Users/workhorse/Developer/qfolioz/QUILTZ/.convergence-terraform.tfstate" -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-converge-terraform
-$ terraform apply -auto-approve -no-color -state="/Users/workhorse/Developer/qfolioz/QUILTZ/.convergence-terraform.tfstate" -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-converge-terraform
+$ terraform apply -auto-approve -no-color -state="$(git rev-parse --show-toplevel)/.convergence-terraform.tfstate" -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-converge-terraform
+$ terraform apply -auto-approve -no-color -state="$(git rev-parse --show-toplevel)/.convergence-terraform.tfstate" -var endpoint=http://127.0.0.1:5599 -var bucket_name=quiltz-converge-terraform
 # the same command twice. The second one is the claim.
 
 terraform version: 1.16.0
