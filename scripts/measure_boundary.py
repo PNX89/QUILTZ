@@ -94,12 +94,35 @@ DENY_ALL = {
 }
 
 
+# What an authorization refusal looks like coming back. moto answers one with HTTP 403, and for
+# SQS it puts the literal string 403 in the error Code where IAM and S3 put AccessDenied, so the
+# status is the test that holds across services and the codes are here for anything that refuses
+# with a name and a status this does not expect.
+REFUSAL_CODES = frozenset({"AccessDenied", "AccessDeniedException", "UnauthorizedOperation"})
+
+
 def allowed(call: Any) -> bool:
-    """Whether a call went through, with the refusal swallowed rather than the outcome guessed."""
+    """Whether a call went through, with a policy refusal told apart from every other failure.
+
+    ANY ClientError used to count as a refusal, and `not allowed(...)` is how measure() records
+    that a policy denied something. So a plain 400 from the service, an InvalidAttributeName on
+    the queue the policy DOES permit for instance, was written down as the Resource element
+    being evaluated and honoured. The probe gave the right answer and could not tell you why.
+
+    That is the reasoning boundary.py's docstring exists to warn against: an absence is not a
+    mechanism, and the one probe in this repository allowed to conclude from a failure was the
+    one that never asked what the failure was. Anything that is not a refusal is re-raised, so
+    it stops the measurement rather than being scored as a denial.
+    """
     try:
         call()
-    except botocore.exceptions.ClientError:
-        return False
+    except botocore.exceptions.ClientError as refused:
+        response = refused.response
+        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        code = response.get("Error", {}).get("Code")
+        if status == 403 or code in REFUSAL_CODES:
+            return False
+        raise
     return True
 
 
@@ -182,20 +205,36 @@ def measure() -> dict[str, bool]:
     return results
 
 
+# How many are asked for. A number rather than a literal in the loop, because the transcript and
+# the guards below both need to know whether the count that came back is a limit the emulator
+# imposed or simply the point at which this stopped asking.
+ATTEMPTS = 130
+
+
 def measure_quotas() -> int:
     """How many buckets the emulator will make before it objects. AWS stops at 100.
 
     Measured rather than asserted, because "every quota is infinite here" is the kind of
     sentence that sounds obviously true and is checked by nobody.
+
+    THE REFUSAL IS CAUGHT, and that is the difference between this returning a measurement and
+    returning its own loop bound. `made` was incremented only after a successful create_bucket
+    and nothing caught the error, so the single return was reachable only when every call
+    succeeded: the function could answer ATTEMPTS or raise, and never the number its name
+    promises. Both guards that print "the emulator refused after N buckets", the one in main()
+    and the one in tests/test_iam_boundary.py, were unreachable as written.
     """
     with emulator(None) as endpoint:
         s3 = client("s3", endpoint)
         made = 0
-        for number in range(1, 131):
-            s3.create_bucket(
-                Bucket=f"quota-probe-{number:03d}",
-                CreateBucketConfiguration={"LocationConstraint": REGION},
-            )
+        for number in range(1, ATTEMPTS + 1):
+            try:
+                s3.create_bucket(
+                    Bucket=f"quota-probe-{number:03d}",
+                    CreateBucketConfiguration={"LocationConstraint": REGION},
+                )
+            except botocore.exceptions.ClientError:
+                break
             made += 1
     return made
 
@@ -213,6 +252,9 @@ def main() -> int:
 
     results = measure()
     buckets = measure_quotas()
+    # The transcript has to say which of the two numbers this is. It reads as a measurement of
+    # the emulator either way, and only one of the two readings is true on any given run.
+    stopped_by = "without a single refusal" if buckets == ATTEMPTS else "before the first refusal"
     lines = [
         "$ uv run scripts/measure_boundary.py",
         f"moto {moto.__version__}, boto3 {boto3.__version__}",
@@ -245,7 +287,7 @@ def main() -> int:
         "policy that is only safe because of its condition passes exactly as one without it.",
         "",
         "4. Service quotas, on a default server.",
-        f"   Buckets created one after another without a single refusal: {buckets}",
+        f"   Buckets created one after another {stopped_by}: {buckets}",
         "   An AWS account stops at 100 by default and needs a quota increase for more. Nothing",
         "   here counts, so no test in this repository can ever meet a limit that a real account",
         "   would meet.",

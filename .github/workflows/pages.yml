@@ -9,6 +9,11 @@ name: Pages
 # place that can run the demo. A publication job that also rebuilt would be a second place
 # for the two to disagree.
 #
+# That division of labour was described here before it existed. Nothing in tests/ opened this
+# file, so the page could say anything at all and the suite stayed green. It is two links now,
+# each of them checked: tests/test_card.py compares the card with docs/evidence/demo.txt and
+# docs/evidence/facts.json, and tests/test_capture.py holds those two to a live run.
+#
 # Pages was enabled out of band with the REST API rather than by actions/configure-pages,
 # whose enablement input needs a token beyond GITHUB_TOKEN. That keeps the zero secrets rule.
 

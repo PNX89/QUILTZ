@@ -27,12 +27,24 @@ from quiltz.policies import (
     unknown_in_plan,
 )
 
-PLANS = pathlib.Path(__file__).resolve().parents[1] / "docs" / "evidence" / "plans"
+REPO = pathlib.Path(__file__).resolve().parents[1]
+PLANS = REPO / "docs" / "evidence" / "plans"
+GENERATOR = REPO / "scripts" / "regenerate_plans.sh"
 
-# Both plans that contain policies. Reading only the identity one, which is what this suite did
-# until 28-8-2026, left the two documents in modules/events unlinted while the PROVED column
-# said every policy the modules create is linted.
-WITH_POLICIES = ("identity-terraform.json", "events-terraform.json")
+# The plans this suite reads used to be two filenames typed here. Reading only the identity one,
+# which is what it did until 28-8-2026, left the two documents in modules/events unlinted while
+# the PROVED column said every policy the modules write is linted. Naming two instead of one
+# fixed that case and left the shape: a plan committed for any further module was neither linted
+# nor named as unreadable, and the completeness assertion below was computed from the same two
+# files it was supposed to be pinning, so it moved with them.
+#
+# So the set is the directory, and the directory is pinned to the one script that writes it.
+PLAN_FILES = {
+    "terraform.json",
+    "opentofu.json",
+    "identity-terraform.json",
+    "events-terraform.json",
+}
 
 PLAN = PLANS / "identity-terraform.json"
 
@@ -42,14 +54,38 @@ def plan() -> dict[str, Any]:
 
 
 def every_plan() -> list[dict[str, Any]]:
-    return [dict(json.loads((PLANS / name).read_text())) for name in WITH_POLICIES]
+    """Every plan in the evidence directory, not a list of the ones somebody remembered."""
+    return [dict(json.loads(path.read_text())) for path in sorted(PLANS.glob("*.json"))]
+
+
+def test_the_committed_plans_are_exactly_the_ones_the_generator_writes() -> None:
+    """The directory, the generator and the name pinned here all have to agree.
+
+    Three ways for the claim below to go quietly false, closed together. A plan file dropped into
+    the directory by hand is read by nothing that regenerates it, so it can say anything. A
+    target added to the generator with no plan committed means CI regenerates a file the suite
+    never sees. And reading the generator without pinning the names here would mean deleting a
+    target buys a smaller claim with a green suite, which is how a list read out of the thing
+    under test stops being a check at all.
+    """
+    written = re.findall(r'^\s*"[^"|]+\|[^"|]+\|([^"|]+)\|', GENERATOR.read_text(), re.M)
+    assert set(written) == PLAN_FILES, (
+        f"scripts/regenerate_plans.sh writes {sorted(written)}. Adding a module means adding it "
+        f"here too, which is the point: this suite makes a claim about every policy those "
+        f"modules write."
+    )
+    assert len(written) == len(PLAN_FILES), f"the generator writes a name twice: {written}"
+    assert {path.name for path in PLANS.glob("*.json")} == PLAN_FILES, (
+        "docs/evidence/plans holds a plan the generator does not write, or is missing one it "
+        "does. Nothing regenerates a hand-placed plan, so nothing checks what it claims."
+    )
 
 
 def test_the_modules_produce_the_documents_this_suite_expects() -> None:
     """If a module gains a policy, this fails until somebody looks at it.
 
-    Across BOTH plans. The set is spelled out rather than counted, because a count would go on
-    passing if one document were swapped for another.
+    Across every committed plan. The set is spelled out rather than counted, because a count
+    would go on passing if one document were swapped for another.
     """
     found = {d.origin for p in every_plan() for d in documents_in_plan(p)}
     assert found == {
@@ -77,7 +113,9 @@ def test_every_policy_the_modules_write_is_either_linted_or_named_as_unreadable(
     """Nothing falls between the two. This is the assertion the PROVED claim rests on.
 
     Counted from the configuration blocks rather than from the two functions, so this cannot
-    pass by both of them agreeing to miss the same document.
+    pass by both of them agreeing to miss the same document. The four is a pin rather than an
+    observation: it was computed from the same file list it was meant to be checking, so it
+    moved whenever the list did.
     """
     written = {
         f"{resource['address']}.{attribute}"
@@ -94,8 +132,14 @@ def test_every_policy_the_modules_write_is_either_linted_or_named_as_unreadable(
 
 
 def test_every_policy_the_modules_create_is_clean() -> None:
-    """The claim, over the real plans rather than over a fixture."""
-    offending = [f for document in documents_in_plan(plan()) for f in lint(document)]
+    """The claim, over every real plan rather than over a fixture or over one of them.
+
+    This read the identity plan alone, so `aws_iam_role.consumer.assume_role_policy` was found
+    by the two tests above and linted by neither.
+    """
+    offending = [
+        f for p in every_plan() for document in documents_in_plan(p) for f in lint(document)
+    ]
     assert offending == [], "\n".join(f"{f.origin}: {f.issue} {f.detail}" for f in offending)
 
 

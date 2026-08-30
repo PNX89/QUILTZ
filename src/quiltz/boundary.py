@@ -130,10 +130,12 @@ NOT_REPRODUCED: tuple[Limit, ...] = (
 # What the emulator DOES establish, stated beside the above rather than under it, because a
 # boundary printed alone reads as an apology and a boundary printed in two columns reads as a
 # measurement.
-# EVERY SENTENCE HERE WAS NARROWED ON 28-8-2026, BECAUSE THREE OF THE FIVE CLAIMED MORE THAN
-# ANYTHING ESTABLISHED. This is the column a reader is most likely to take at face value, so it
-# is the one that had to be checked hardest, and it had never been checked at all: the only test
-# guarding it asserted a length.
+# THREE OF THE FIVE SENTENCES HERE WERE NARROWED ON 28-8-2026, BECAUSE THEY CLAIMED MORE THAN
+# ANYTHING ESTABLISHED. The other two were left exactly as written, and this comment said EVERY
+# sentence had been narrowed until 30-8-2026, which is a number overstated in the file that
+# exists to stop numbers being overstated. This is the column a reader is most likely to take at
+# face value, so it is the one that had to be checked hardest, and it had never been checked at
+# all: the only test guarding it asserted a length.
 #
 #   "converges, under two independent binaries" was a word rather than a measurement. OpenTofu
 #   planned and never applied anything anywhere in the repository, and nothing asserted that a
