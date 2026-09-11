@@ -32,7 +32,7 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "pytest>=8",
-    "ruff>=0.6",
+    "ruff>=0.16.6",
     "mypy>=1.11",
     # parliament 1.6.4 still imports pkg_resources, which setuptools removed in 81. Without
     # this pin it does not import at all on this machine's Python 3.14. Found by the pre-flight
